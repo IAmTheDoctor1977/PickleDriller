@@ -439,34 +439,58 @@ function renderPlanBlock(plan, label) {
     <div class="session-plan-block">
       <div class="plan-focus">${escapeHtml(plan.focus)}</div>
       <p class="plan-reason">${escapeHtml(plan.reasoning)}</p>
-      ${plan.drills.map(d => {
+      ${plan.drills.map((d, i) => {
         const drill = DRILLS.find(x => x.id === d.id);
-        return `<div class="plan-step">
-          <span class="plan-step-name">${escapeHtml(drill?.name || '???')}</span>
-          <span class="plan-step-time">${d.duration} min</span>
-        </div>`;
+        if (!drill) return '';
+        const roleLabel = drill.role === 'warmup' ? 'WARM-UP'
+                       : drill.role === 'cooldown' ? 'COOL-DOWN'
+                       : `STEP ${i}`;
+        return `
+          <div class="plan-drill">
+            <div class="plan-drill-head">
+              <div>
+                <div class="plan-drill-tag">${roleLabel} · ${drill.category}</div>
+                <div class="plan-step-name">${escapeHtml(drill.name)}</div>
+              </div>
+              <span class="plan-step-time">${d.duration} min</span>
+            </div>
+            <p class="plan-drill-desc">${escapeHtml(drill.description)}</p>
+            ${drill.notes ? `<div class="plan-drill-notes">${escapeHtml(drill.notes)}</div>` : ''}
+            <div class="tags">
+              <span class="tag intensity-${drill.intensity}">${drill.intensity}</span>
+              ${drill.equipment.map(e => `<span class="tag">${e}</span>`).join('')}
+            </div>
+          </div>
+        `;
       }).join('')}
-      <div class="plan-step" style="border-top:1px solid var(--border);padding-top:12px;margin-top:6px">
+      <div class="plan-total">
         <span class="plan-step-name" style="color:var(--accent)">TOTAL</span>
         <span class="plan-step-time" style="color:var(--accent);font-weight:500">${total} min</span>
       </div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-secondary" id="plan-export">View Details</button>
+      <button class="btn btn-secondary" id="plan-copy">Copy as Text</button>
       <button class="btn" id="plan-tolog">Send to Log</button>
     </div>
   `;
 }
 
 function bindPlanActions() {
-  const exportBtn = document.getElementById('plan-export');
+  const copyBtn = document.getElementById('plan-copy');
   const toLogBtn = document.getElementById('plan-tolog');
-  if (exportBtn) exportBtn.onclick = () => {
-    const lines = state.plan.drills.map(d => {
+  if (copyBtn) copyBtn.onclick = async () => {
+    const lines = state.plan.drills.map((d, i) => {
       const drill = DRILLS.find(x => x.id === d.id);
-      return `• ${drill.name} (${d.duration} min)\n  ${drill.description}${drill.notes ? '\n  Note: ' + drill.notes : ''}`;
+      return `${i+1}. ${drill.name} (${d.duration} min)\n   ${drill.description}${drill.notes ? '\n   Note: ' + drill.notes : ''}`;
     }).join('\n\n');
-    alert(`${state.plan.focus}\n\n${lines}`);
+    const text = `${state.plan.focus}\n${state.plan.reasoning}\n\n${lines}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = 'Copy as Text', 1500);
+    } catch {
+      alert(text);
+    }
   };
   if (toLogBtn) toLogBtn.onclick = () => {
     state.draft = {
