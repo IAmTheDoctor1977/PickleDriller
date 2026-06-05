@@ -6,6 +6,7 @@ const STORAGE = {
   gear:     'dl_gear',
   apiKey:   'dl_api_key',
   activeTab:'dl_tab',
+  assess:   'dl_assessment',
 };
 
 function load(key, fallback) {
@@ -19,8 +20,9 @@ const state = {
   gear:     load(STORAGE.gear,     []),
   apiKey:   localStorage.getItem(STORAGE.apiKey) || '',
   activeTab:localStorage.getItem(STORAGE.activeTab) || 'drills',
-  draft:    null,    // current log draft
-  plan:     null,    // current randomized/generated plan
+  draft:    null,
+  plan:     null,
+  assess:   load(STORAGE.assess, { results: {}, computedAt: null, level: null, breakdown: null }),
 };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -43,6 +45,7 @@ const VIEWS = {
   random:   renderRandom,
   generate: renderGenerate,
   gear:     renderGear,
+  assess:   renderAssess,
 };
 
 function setTab(tab) {
@@ -53,10 +56,12 @@ function setTab(tab) {
   });
   const labels = {
     drills: 'Drills', log: 'Log Session', history: 'History',
-    random: 'Random', generate: 'AI Generate', gear: 'Gear'
+    random: 'Random', generate: 'AI Generate', gear: 'Gear',
+    assess: 'Assessment'
   };
   document.getElementById('topbar-tab').textContent = labels[tab];
   VIEWS[tab]();
+  window.scrollTo(0, 0);
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -64,14 +69,12 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 });
 
 /* ──────────────────────────────────────────────
-   VIEW: DRILLS
+   DRILLS
    ────────────────────────────────────────────── */
 function renderDrills() {
   const view = document.getElementById('view');
-  let html = `
-    <h2 class="view-title">Drill Library</h2>
-    <p class="view-sub">${DRILLS.length} drills · 10 categories</p>
-  `;
+  let html = `<h2 class="view-title">Drill Library</h2>
+    <p class="view-sub">${DRILLS.length} drills · 10 categories</p>`;
   CATEGORIES.forEach(cat => {
     const items = DRILLS.filter(d => d.category === cat.id);
     if (!items.length) return;
@@ -84,7 +87,9 @@ function renderDrills() {
     </section>`;
   });
   view.innerHTML = html;
-  bindDrillCards();
+  document.querySelectorAll('.drill-card').forEach(c => {
+    c.addEventListener('click', () => c.classList.toggle('open'));
+  });
 }
 
 function drillCard(d) {
@@ -100,100 +105,59 @@ function drillCard(d) {
       <div class="drill-body">
         <p>${escapeHtml(d.description)}</p>
         ${d.notes ? `<div class="drill-notes">${escapeHtml(d.notes)}</div>` : ''}
-        <div class="tags">
-          ${d.tags.map(t => `<span class="tag">${t}</span>`).join('')}
-        </div>
+        <div class="tags">${d.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
       </div>
-    </div>
-  `;
-}
-
-function bindDrillCards() {
-  document.querySelectorAll('.drill-card').forEach(c => {
-    c.addEventListener('click', () => c.classList.toggle('open'));
-  });
+    </div>`;
 }
 
 /* ──────────────────────────────────────────────
-   VIEW: LOG
+   LOG
    ────────────────────────────────────────────── */
 function renderLog() {
   const view = document.getElementById('view');
   if (!state.draft) {
     state.draft = {
-      id: uid(),
-      date: today(),
-      focus: '',
-      duration: 45,
-      partnerSolo: 'solo',
-      performance: '',
-      drillIds: [],
-      notes: '',
+      id: uid(), date: today(), focus: '', duration: 45,
+      partnerSolo: 'solo', performance: '', drillIds: [], notes: '',
     };
   }
   const d = state.draft;
-
   view.innerHTML = `
     <h2 class="view-title">Log Session</h2>
     <p class="view-sub">Capture today's practice</p>
-
-    <label class="field">
-      <span>Date</span>
-      <input type="date" id="f-date" value="${d.date}">
-    </label>
-
-    <label class="field">
-      <span>Focus / Theme</span>
-      <input type="text" id="f-focus" placeholder="e.g. resets, third shots, hands" value="${escapeHtml(d.focus)}">
-    </label>
-
+    <label class="field"><span>Date</span>
+      <input type="date" id="f-date" value="${d.date}"></label>
+    <label class="field"><span>Focus / Theme</span>
+      <input type="text" id="f-focus" placeholder="e.g. resets, third shots, hands" value="${escapeHtml(d.focus)}"></label>
     <div class="row">
-      <label class="field">
-        <span>Duration (min)</span>
-        <input type="number" id="f-duration" min="5" max="240" value="${d.duration}">
-      </label>
-      <label class="field">
-        <span>Mode</span>
+      <label class="field"><span>Duration (min)</span>
+        <input type="number" id="f-duration" min="5" max="240" value="${d.duration}"></label>
+      <label class="field"><span>Mode</span>
         <select id="f-mode">
-          <option value="solo"    ${d.partnerSolo==='solo'?'selected':''}>Solo</option>
+          <option value="solo" ${d.partnerSolo==='solo'?'selected':''}>Solo</option>
           <option value="partner" ${d.partnerSolo==='partner'?'selected':''}>Partner</option>
-          <option value="group"   ${d.partnerSolo==='group'?'selected':''}>Group / clinic</option>
-        </select>
-      </label>
+          <option value="group" ${d.partnerSolo==='group'?'selected':''}>Group / clinic</option>
+        </select></label>
     </div>
-
-    <label class="field">
-      <span>Performance</span>
+    <label class="field"><span>Performance</span>
       <div class="chips" id="f-perf">
         <div class="chip ${d.performance==='sharp'?'active':''}" data-v="sharp">Sharp</div>
-        <div class="chip ${d.performance==='okay'?'active':''}"  data-v="okay">Okay</div>
+        <div class="chip ${d.performance==='okay'?'active':''}" data-v="okay">Okay</div>
         <div class="chip ${d.performance==='rough'?'active':''}" data-v="rough">Rough</div>
-      </div>
-    </label>
-
-    <label class="field">
-      <span>Drills worked (tap to add)</span>
+      </div></label>
+    <label class="field"><span>Drills worked (tap to add)</span>
       <select id="f-add-drill">
         <option value="">+ Add a drill from library</option>
         ${DRILLS.map(dr => `<option value="${dr.id}">${escapeHtml(dr.name)} — ${dr.category}</option>`).join('')}
       </select>
-      <div id="f-drill-list" style="margin-top:8px"></div>
-    </label>
-
-    <label class="field">
-      <span>Notes</span>
-      <textarea id="f-notes" placeholder="What worked? What felt off? Body, conditions, partner level...">${escapeHtml(d.notes)}</textarea>
-    </label>
-
+      <div id="f-drill-list" style="margin-top:8px"></div></label>
+    <label class="field"><span>Notes</span>
+      <textarea id="f-notes" placeholder="What worked? What felt off?">${escapeHtml(d.notes)}</textarea></label>
     <div class="btn-row">
       <button class="btn btn-secondary" id="f-cancel">Reset</button>
       <button class="btn" id="f-save">Save Session</button>
-    </div>
-  `;
-
+    </div>`;
   renderDraftDrillList();
-
-  // bind
   document.getElementById('f-date').onchange = e => d.date = e.target.value;
   document.getElementById('f-focus').oninput = e => d.focus = e.target.value;
   document.getElementById('f-duration').onchange = e => d.duration = +e.target.value;
@@ -207,27 +171,17 @@ function renderLog() {
     };
   });
   document.getElementById('f-add-drill').onchange = e => {
-    if (e.target.value) {
-      d.drillIds.push(e.target.value);
-      renderDraftDrillList();
-      e.target.value = '';
-    }
+    if (e.target.value) { d.drillIds.push(e.target.value); renderDraftDrillList(); e.target.value = ''; }
   };
   document.getElementById('f-save').onclick = saveSession;
   document.getElementById('f-cancel').onclick = () => {
-    if (confirm('Reset this draft session?')) {
-      state.draft = null;
-      renderLog();
-    }
+    if (confirm('Reset this draft?')) { state.draft = null; renderLog(); }
   };
 }
 
 function renderDraftDrillList() {
   const ul = document.getElementById('f-drill-list');
-  if (!state.draft.drillIds.length) {
-    ul.innerHTML = `<p class="hint">No drills added yet.</p>`;
-    return;
-  }
+  if (!state.draft.drillIds.length) { ul.innerHTML = `<p class="hint">No drills added yet.</p>`; return; }
   ul.innerHTML = state.draft.drillIds.map((id, i) => {
     const d = DRILLS.find(x => x.id === id);
     return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
@@ -239,10 +193,7 @@ function renderDraftDrillList() {
     </div>`;
   }).join('');
   ul.querySelectorAll('[data-rm]').forEach(b => {
-    b.onclick = () => {
-      state.draft.drillIds.splice(+b.dataset.rm, 1);
-      renderDraftDrillList();
-    };
+    b.onclick = () => { state.draft.drillIds.splice(+b.dataset.rm, 1); renderDraftDrillList(); };
   });
 }
 
@@ -257,44 +208,28 @@ function saveSession() {
 }
 
 /* ──────────────────────────────────────────────
-   VIEW: HISTORY
+   HISTORY
    ────────────────────────────────────────────── */
 function renderHistory() {
   const view = document.getElementById('view');
   if (!state.sessions.length) {
-    view.innerHTML = `
-      <h2 class="view-title">History</h2>
+    view.innerHTML = `<h2 class="view-title">History</h2>
       <p class="view-sub">All logged sessions</p>
-      <div class="empty">
-        <div class="empty-icon">○</div>
-        <div class="empty-text">No sessions yet. Log one to start.</div>
-      </div>`;
+      <div class="empty"><div class="empty-icon">○</div>
+        <div class="empty-text">No sessions yet. Log one to start.</div></div>`;
     return;
   }
-
-  // aggregate
-  const last30 = state.sessions.filter(s => {
-    const days = (Date.now() - new Date(s.date)) / 86400000;
-    return days <= 30;
-  });
+  const last30 = state.sessions.filter(s => (Date.now() - new Date(s.date)) / 86400000 <= 30);
   const totalMin = last30.reduce((a, s) => a + (s.duration || 0), 0);
-  const sharpPct = last30.length
-    ? Math.round(100 * last30.filter(s => s.performance === 'sharp').length / last30.length)
-    : 0;
-
-  view.innerHTML = `
-    <h2 class="view-title">History</h2>
+  const sharpPct = last30.length ? Math.round(100 * last30.filter(s => s.performance === 'sharp').length / last30.length) : 0;
+  view.innerHTML = `<h2 class="view-title">History</h2>
     <p class="view-sub">${state.sessions.length} session${state.sessions.length===1?'':'s'} logged</p>
-
     <div class="stat-grid">
       <div class="stat-box"><div class="v">${last30.length}</div><div class="k">Last 30d</div></div>
       <div class="stat-box"><div class="v">${totalMin}</div><div class="k">Minutes</div></div>
       <div class="stat-box"><div class="v">${sharpPct}%</div><div class="k">Sharp</div></div>
     </div>
-
-    ${state.sessions.map(sessionCard).join('')}
-  `;
-
+    ${state.sessions.map(sessionCard).join('')}`;
   view.querySelectorAll('[data-del]').forEach(b => {
     b.onclick = () => {
       if (confirm('Delete this session?')) {
@@ -312,167 +247,129 @@ function sessionCard(s) {
     return d ? `<li>${escapeHtml(d.name)} <span class="drill-meta">· ${d.duration} min</span></li>` : '';
   }).join('');
   const perfTag = s.performance ? `<span class="tag intensity-${s.performance==='sharp'?'low':s.performance==='okay'?'medium':'medium-high'}">${s.performance}</span>` : '';
-  return `
-    <div class="session-card">
-      <div class="session-head">
-        <div class="session-date">${fmtDate(s.date)}</div>
-        <span class="session-stats">${s.duration} min · ${s.partnerSolo}</span>
-      </div>
-      <div class="session-focus">${escapeHtml(s.focus)}</div>
-      <div style="margin-bottom:6px">${perfTag}</div>
-      ${drills ? `<ul class="session-drills">${drills}</ul>` : ''}
-      ${s.notes ? `<p class="session-notes">"${escapeHtml(s.notes)}"</p>` : ''}
-      <button class="btn btn-secondary" style="margin-top:10px;font-size:13px;padding:8px" data-del="${s.id}">Delete</button>
+  return `<div class="session-card">
+    <div class="session-head">
+      <div class="session-date">${fmtDate(s.date)}</div>
+      <span class="session-stats">${s.duration} min · ${s.partnerSolo}</span>
     </div>
-  `;
+    <div class="session-focus">${escapeHtml(s.focus)}</div>
+    <div style="margin-bottom:6px">${perfTag}</div>
+    ${drills ? `<ul class="session-drills">${drills}</ul>` : ''}
+    ${s.notes ? `<p class="session-notes">"${escapeHtml(s.notes)}"</p>` : ''}
+    <button class="btn btn-secondary" style="margin-top:10px;font-size:13px;padding:8px" data-del="${s.id}">Delete</button>
+  </div>`;
 }
 
 /* ──────────────────────────────────────────────
-   VIEW: RANDOMIZE
+   RANDOMIZE
    ────────────────────────────────────────────── */
 function renderRandom() {
   const view = document.getElementById('view');
-  view.innerHTML = `
-    <h2 class="view-title">Randomize</h2>
-    <p class="view-sub">Smart-shuffled practice from the library</p>
-
-    <label class="field">
-      <span>Target duration</span>
+  view.innerHTML = `<h2 class="view-title">Randomize</h2>
+    <p class="view-sub">Smart-shuffled practice</p>
+    <label class="field"><span>Target duration</span>
       <div class="chips" id="r-dur">
         <div class="chip active" data-v="30">30 min</div>
         <div class="chip" data-v="45">45 min</div>
         <div class="chip" data-v="60">60 min</div>
         <div class="chip" data-v="90">90 min</div>
-      </div>
-    </label>
-
-    <label class="field">
-      <span>Mode</span>
+      </div></label>
+    <label class="field"><span>Mode</span>
       <div class="chips" id="r-mode">
         <div class="chip active" data-v="any">Any</div>
         <div class="chip" data-v="solo">Solo only</div>
         <div class="chip" data-v="partner">Partner only</div>
-      </div>
-    </label>
-
+      </div></label>
     <button class="btn" id="r-roll">Roll Practice</button>
-
-    <div id="r-out" style="margin-top:18px"></div>
-  `;
-
+    <div id="r-out" style="margin-top:18px"></div>`;
   let dur = 30, mode = 'any';
   document.querySelectorAll('#r-dur .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#r-dur .chip').forEach(x => x.classList.remove('active'));
-      c.classList.add('active');
-      dur = +c.dataset.v;
+      c.classList.add('active'); dur = +c.dataset.v;
     };
   });
   document.querySelectorAll('#r-mode .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#r-mode .chip').forEach(x => x.classList.remove('active'));
-      c.classList.add('active');
-      mode = c.dataset.v;
+      c.classList.add('active'); mode = c.dataset.v;
     };
   });
-
   document.getElementById('r-roll').onclick = () => {
     const plan = generateRandomPlan(dur, mode);
     state.plan = plan;
-    document.getElementById('r-out').innerHTML = renderPlanBlock(plan, 'Randomized session');
+    document.getElementById('r-out').innerHTML = renderPlanBlock(plan);
     bindPlanActions();
   };
 }
 
-/**
- * Build a logical random practice.
- * Rules:
- *  - Always start with warm-up (~5 min)
- *  - End with cool-down (~5 min)
- *  - Mix categories — no two consecutive drills from the same category
- *  - No two consecutive high-intensity drills
- *  - Fill main block to roughly target duration
- */
 function generateRandomPlan(targetMin, mode) {
   const filter = d => mode === 'any' || d.tags.includes(mode);
-
-  const warmups   = DRILLS.filter(d => d.role === 'warmup'   && filter(d));
+  const warmups = DRILLS.filter(d => d.role === 'warmup' && filter(d));
   const cooldowns = DRILLS.filter(d => d.role === 'cooldown' && filter(d));
-  const main      = DRILLS.filter(d => d.role === 'main'     && filter(d));
-
+  const main = DRILLS.filter(d => d.role === 'main' && filter(d));
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-
   const picks = [];
   const warm = pick(warmups);
   if (warm) picks.push(warm);
-
   let acc = warm?.duration || 0;
   const cool = pick(cooldowns);
   const coolDur = cool?.duration || 0;
   const mainBudget = targetMin - acc - coolDur;
-
   const pool = [...main].sort(() => Math.random() - 0.5);
   let totalMain = 0;
   for (const d of pool) {
     if (totalMain + d.duration > mainBudget + 4) continue;
     const prev = picks[picks.length - 1];
-    if (prev && prev.category === d.category) continue;       // no consecutive same-cat
+    if (prev && prev.category === d.category) continue;
     if (prev && prev.intensity === 'high' && d.intensity === 'high') continue;
     picks.push(d);
     totalMain += d.duration;
     if (totalMain >= mainBudget - 4) break;
   }
-
   if (cool) picks.push(cool);
-
   const total = picks.reduce((a, d) => a + d.duration, 0);
   return {
     focus: 'Random shuffle',
-    reasoning: `${total}-min mixed practice. Warm-up → ${picks.length - 2} main drills → cool-down. No back-to-back high-intensity or same-category drills.`,
+    reasoning: `${total}-min mixed practice. Warm-up → ${picks.length - 2} main drills → cool-down. No back-to-back high-intensity or same-category.`,
     drills: picks.map(d => ({ id: d.id, duration: d.duration }))
   };
 }
 
-function renderPlanBlock(plan, label) {
+function renderPlanBlock(plan) {
   const total = plan.drills.reduce((a, d) => a + d.duration, 0);
-  return `
-    <div class="session-plan-block">
-      <div class="plan-focus">${escapeHtml(plan.focus)}</div>
-      <p class="plan-reason">${escapeHtml(plan.reasoning)}</p>
-      ${plan.drills.map((d, i) => {
-        const drill = DRILLS.find(x => x.id === d.id);
-        if (!drill) return '';
-        const roleLabel = drill.role === 'warmup' ? 'WARM-UP'
-                       : drill.role === 'cooldown' ? 'COOL-DOWN'
-                       : `STEP ${i}`;
-        return `
-          <div class="plan-drill">
-            <div class="plan-drill-head">
-              <div>
-                <div class="plan-drill-tag">${roleLabel} · ${drill.category}</div>
-                <div class="plan-step-name">${escapeHtml(drill.name)}</div>
-              </div>
-              <span class="plan-step-time">${d.duration} min</span>
-            </div>
-            <p class="plan-drill-desc">${escapeHtml(drill.description)}</p>
-            ${drill.notes ? `<div class="plan-drill-notes">${escapeHtml(drill.notes)}</div>` : ''}
-            <div class="tags">
-              <span class="tag intensity-${drill.intensity}">${drill.intensity}</span>
-              ${drill.equipment.map(e => `<span class="tag">${e}</span>`).join('')}
-            </div>
+  return `<div class="session-plan-block">
+    <div class="plan-focus">${escapeHtml(plan.focus)}</div>
+    <p class="plan-reason">${escapeHtml(plan.reasoning)}</p>
+    ${plan.drills.map((d, i) => {
+      const drill = DRILLS.find(x => x.id === d.id);
+      if (!drill) return '';
+      const roleLabel = drill.role === 'warmup' ? 'WARM-UP' : drill.role === 'cooldown' ? 'COOL-DOWN' : `STEP ${i}`;
+      return `<div class="plan-drill">
+        <div class="plan-drill-head">
+          <div>
+            <div class="plan-drill-tag">${roleLabel} · ${drill.category}</div>
+            <div class="plan-step-name">${escapeHtml(drill.name)}</div>
           </div>
-        `;
-      }).join('')}
-      <div class="plan-total">
-        <span class="plan-step-name" style="color:var(--accent)">TOTAL</span>
-        <span class="plan-step-time" style="color:var(--accent);font-weight:500">${total} min</span>
-      </div>
+          <span class="plan-step-time">${d.duration} min</span>
+        </div>
+        <p class="plan-drill-desc">${escapeHtml(drill.description)}</p>
+        ${drill.notes ? `<div class="plan-drill-notes">${escapeHtml(drill.notes)}</div>` : ''}
+        <div class="tags">
+          <span class="tag intensity-${drill.intensity}">${drill.intensity}</span>
+          ${drill.equipment.map(e => `<span class="tag">${e}</span>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+    <div class="plan-total">
+      <span class="plan-step-name" style="color:var(--accent)">TOTAL</span>
+      <span class="plan-step-time" style="color:var(--accent);font-weight:500">${total} min</span>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" id="plan-copy">Copy as Text</button>
-      <button class="btn" id="plan-tolog">Send to Log</button>
-    </div>
-  `;
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-secondary" id="plan-copy">Copy as Text</button>
+    <button class="btn" id="plan-tolog">Send to Log</button>
+  </div>`;
 }
 
 function bindPlanActions() {
@@ -488,70 +385,46 @@ function bindPlanActions() {
       await navigator.clipboard.writeText(text);
       copyBtn.textContent = 'Copied!';
       setTimeout(() => copyBtn.textContent = 'Copy as Text', 1500);
-    } catch {
-      alert(text);
-    }
+    } catch { alert(text); }
   };
   if (toLogBtn) toLogBtn.onclick = () => {
     state.draft = {
-      id: uid(),
-      date: today(),
+      id: uid(), date: today(),
       focus: state.plan.focus,
       duration: state.plan.drills.reduce((a, d) => a + d.duration, 0),
-      partnerSolo: 'solo',
-      performance: '',
-      drillIds: state.plan.drills.map(d => d.id),
-      notes: '',
+      partnerSolo: 'solo', performance: '',
+      drillIds: state.plan.drills.map(d => d.id), notes: '',
     };
     setTab('log');
   };
 }
 
 /* ──────────────────────────────────────────────
-   VIEW: GENERATE (AI)
+   GENERATE (AI)
    ────────────────────────────────────────────── */
 function renderGenerate() {
   const view = document.getElementById('view');
-  view.innerHTML = `
-    <h2 class="view-title">AI Generate</h2>
+  view.innerHTML = `<h2 class="view-title">AI Generate</h2>
     <p class="view-sub">Practice built from your last sessions</p>
-
-    ${!state.apiKey ? `
-      <div class="warn">
-        <strong>API key required.</strong> This uses Anthropic's API. Your key is stored only in this browser's local storage. Get one at console.anthropic.com.
-      </div>
-    ` : ''}
-
-    <label class="field">
-      <span>Anthropic API Key</span>
+    ${!state.apiKey ? `<div class="warn"><strong>API key required.</strong> Uses Anthropic's API. Your key is stored only in this browser. Get one at console.anthropic.com.</div>` : ''}
+    <label class="field"><span>Anthropic API Key</span>
       <input type="password" id="g-key" placeholder="sk-ant-..." value="${state.apiKey}">
-      <p class="hint">Stored locally only. Never sent anywhere except Anthropic.</p>
-    </label>
-
-    <label class="field">
-      <span>Target duration</span>
+      <p class="hint">Stored locally only.</p></label>
+    <label class="field"><span>Target duration</span>
       <div class="chips" id="g-dur">
         <div class="chip" data-v="30">30 min</div>
         <div class="chip active" data-v="45">45 min</div>
         <div class="chip" data-v="60">60 min</div>
         <div class="chip" data-v="90">90 min</div>
-      </div>
-    </label>
-
-    <label class="field">
-      <span>Mode</span>
+      </div></label>
+    <label class="field"><span>Mode</span>
       <div class="chips" id="g-mode">
         <div class="chip active" data-v="any">Any</div>
         <div class="chip" data-v="solo">Solo only</div>
         <div class="chip" data-v="partner">Partner only</div>
-      </div>
-    </label>
-
+      </div></label>
     <button class="btn" id="g-go">Generate Session</button>
-
-    <div id="g-out" style="margin-top:18px"></div>
-  `;
-
+    <div id="g-out" style="margin-top:18px"></div>`;
   let dur = 45, mode = 'any';
   document.getElementById('g-key').oninput = e => {
     state.apiKey = e.target.value.trim();
@@ -560,15 +433,13 @@ function renderGenerate() {
   document.querySelectorAll('#g-dur .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#g-dur .chip').forEach(x => x.classList.remove('active'));
-      c.classList.add('active');
-      dur = +c.dataset.v;
+      c.classList.add('active'); dur = +c.dataset.v;
     };
   });
   document.querySelectorAll('#g-mode .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#g-mode .chip').forEach(x => x.classList.remove('active'));
-      c.classList.add('active');
-      mode = c.dataset.v;
+      c.classList.add('active'); mode = c.dataset.v;
     };
   });
   document.getElementById('g-go').onclick = () => generateAIPlan(dur, mode);
@@ -578,60 +449,42 @@ async function generateAIPlan(targetMin, mode) {
   if (!state.apiKey) return alert('Add your Anthropic API key first.');
   const out = document.getElementById('g-out');
   out.innerHTML = `<div class="hint"><span class="spinner"></span>Analyzing your sessions…</div>`;
-
   const recent = state.sessions.slice(0, 10);
   if (!recent.length) {
     out.innerHTML = `<div class="warn">No session history yet. Log a couple of sessions first, or use Randomize.</div>`;
     return;
   }
-
   const drillList = DRILLS.map(d => ({
     id: d.id, name: d.name, category: d.category,
-    role: d.role, duration: d.duration, intensity: d.intensity,
-    tags: d.tags
+    role: d.role, duration: d.duration, intensity: d.intensity, tags: d.tags
   }));
-
   const sessionsForPrompt = recent.map(s => ({
-    date: s.date,
-    focus: s.focus,
-    performance: s.performance,
+    date: s.date, focus: s.focus, performance: s.performance,
     drills: (s.drillIds || []).map(id => {
       const dr = DRILLS.find(x => x.id === id);
       return dr ? dr.name + ' (' + dr.category + ')' : id;
     }),
     notes: s.notes || ''
   }));
-
   const system = `You are a pickleball coaching assistant. Given a player's recent practice logs, identify their weak areas and build a focused practice session.
 
 Rules:
-- Always start with exactly ONE warmup drill (role: warmup).
-- Always end with exactly ONE cooldown drill (role: cooldown).
-- Pick 4-7 main drills (role: main) in between.
-- Total duration should target ${targetMin} minutes (±5 min OK).
-- Weight drills toward categories where recent performance was "rough" or "okay" or mentioned in notes as struggling.
-- Don't put two high-intensity drills back-to-back.
-- Don't put two drills from the same category back-to-back.
-${mode !== 'any' ? `- Only include drills with "${mode}" in tags.` : ''}
-- Use ONLY drills from the provided library; never invent drills.
+- Start with exactly ONE warmup drill (role: warmup).
+- End with exactly ONE cooldown drill (role: cooldown).
+- 4-7 main drills (role: main) in between.
+- Total duration targets ${targetMin} minutes (±5 OK).
+- Weight drills toward categories where recent performance was "rough"/"okay" or notes show struggle.
+- No two high-intensity drills back-to-back. No two same-category back-to-back.
+${mode !== 'any' ? `- Only drills with "${mode}" in tags.` : ''}
+- Use ONLY drills from the provided library.
 
-Output ONLY a JSON object with this exact shape, no markdown, no preamble:
+Output ONLY JSON, no markdown:
 {
-  "focus": "short string naming the focus area",
-  "reasoning": "2-3 sentences explaining what weaknesses you saw and why this session targets them",
-  "drills": [
-    { "id": "drill_id_from_library", "duration": minutes_number }
-  ]
+  "focus": "string",
+  "reasoning": "2-3 sentences",
+  "drills": [{ "id": "drill_id", "duration": minutes }]
 }`;
-
-  const userMsg = `Drill library:
-${JSON.stringify(drillList)}
-
-Recent sessions (newest first):
-${JSON.stringify(sessionsForPrompt, null, 2)}
-
-Build a ${targetMin}-minute session.`;
-
+  const userMsg = `Drill library:\n${JSON.stringify(drillList)}\n\nRecent sessions:\n${JSON.stringify(sessionsForPrompt, null, 2)}\n\nBuild a ${targetMin}-minute session.`;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -648,19 +501,13 @@ Build a ${targetMin}-minute session.`;
         messages: [{ role: 'user', content: userMsg }]
       })
     });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`API ${res.status}: ${t.slice(0, 200)}`);
-    }
+    if (!res.ok) { const t = await res.text(); throw new Error(`API ${res.status}: ${t.slice(0,200)}`); }
     const data = await res.json();
     const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    const cleaned = text.replace(/```json|```/g, '').trim();
-    const plan = JSON.parse(cleaned);
-
-    // validate
+    const plan = JSON.parse(text.replace(/```json|```/g, '').trim());
     plan.drills = plan.drills.filter(d => DRILLS.find(x => x.id === d.id));
     state.plan = plan;
-    out.innerHTML = renderPlanBlock(plan, 'AI session');
+    out.innerHTML = renderPlanBlock(plan);
     bindPlanActions();
   } catch (err) {
     out.innerHTML = `<div class="warn">Generation failed: ${escapeHtml(err.message)}</div>`;
@@ -668,57 +515,39 @@ Build a ${targetMin}-minute session.`;
 }
 
 /* ──────────────────────────────────────────────
-   VIEW: GEAR
+   GEAR
    ────────────────────────────────────────────── */
 const GEAR_TYPES = ['paddle', 'balls', 'ball-machine', 'rebounder', 'court', 'shoes', 'other'];
 
 function renderGear() {
   const view = document.getElementById('view');
-  view.innerHTML = `
-    <h2 class="view-title">Gear</h2>
+  view.innerHTML = `<h2 class="view-title">Gear</h2>
     <p class="view-sub">${state.gear.length} item${state.gear.length===1?'':'s'} tracked</p>
-
     <div class="card card-accent">
-      <label class="field">
-        <span>Add new gear</span>
-        <input type="text" id="gear-name" placeholder="e.g. Slinger Bag, Selkirk Halo, Franklin X-40s">
-      </label>
+      <label class="field"><span>Add new gear</span>
+        <input type="text" id="gear-name" placeholder="e.g. Slinger Bag, Selkirk Halo"></label>
       <div class="row">
-        <label class="field">
-          <span>Type</span>
-          <select id="gear-type">
-            ${GEAR_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
-          </select>
-        </label>
-        <label class="field">
-          <span>Status</span>
+        <label class="field"><span>Type</span>
+          <select id="gear-type">${GEAR_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></label>
+        <label class="field"><span>Status</span>
           <select id="gear-status">
             <option value="active">Active</option>
             <option value="backup">Backup</option>
             <option value="retired">Retired</option>
-          </select>
-        </label>
+          </select></label>
       </div>
-      <label class="field">
-        <span>Notes</span>
-        <textarea id="gear-notes" placeholder="weight, grip size, brand, court name..."></textarea>
-      </label>
+      <label class="field"><span>Notes</span>
+        <textarea id="gear-notes" placeholder="weight, grip size, brand, court name..."></textarea></label>
       <button class="btn" id="gear-add">Add Gear</button>
     </div>
-
     <div class="divider"></div>
-
-    <div id="gear-list"></div>
-  `;
-
+    <div id="gear-list"></div>`;
   renderGearList();
-
   document.getElementById('gear-add').onclick = () => {
     const name = document.getElementById('gear-name').value.trim();
     if (!name) return alert('Name required.');
     state.gear.unshift({
-      id: uid(),
-      name,
+      id: uid(), name,
       type: document.getElementById('gear-type').value,
       status: document.getElementById('gear-status').value,
       notes: document.getElementById('gear-notes').value.trim(),
@@ -736,26 +565,276 @@ function renderGearList() {
     list.innerHTML = `<div class="empty"><div class="empty-icon">○</div><div class="empty-text">No gear added yet</div></div>`;
     return;
   }
-  list.innerHTML = state.gear.map(g => `
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-        <div style="font-family:'Bebas Neue';font-size:20px">${escapeHtml(g.name)}</div>
-        <span class="tag accent">${g.status}</span>
-      </div>
-      <div class="drill-meta" style="margin-bottom:6px">${g.type}</div>
-      ${g.notes ? `<div class="session-notes">${escapeHtml(g.notes)}</div>` : ''}
-      <button class="btn btn-secondary" style="margin-top:10px;font-size:13px;padding:8px" data-rm-gear="${g.id}">Remove</button>
+  list.innerHTML = state.gear.map(g => `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+      <div style="font-family:'Bebas Neue';font-size:20px">${escapeHtml(g.name)}</div>
+      <span class="tag accent">${g.status}</span>
     </div>
-  `).join('');
+    <div class="drill-meta" style="margin-bottom:6px">${g.type}</div>
+    ${g.notes ? `<div class="session-notes">${escapeHtml(g.notes)}</div>` : ''}
+    <button class="btn btn-secondary" style="margin-top:10px;font-size:13px;padding:8px" data-rm-gear="${g.id}">Remove</button>
+  </div>`).join('');
   list.querySelectorAll('[data-rm-gear]').forEach(b => {
     b.onclick = () => {
-      if (confirm('Remove this gear item?')) {
+      if (confirm('Remove this gear?')) {
         state.gear = state.gear.filter(g => g.id !== b.dataset.rmGear);
         save(STORAGE.gear, state.gear);
         renderGearList();
       }
     };
   });
+}
+
+/* ──────────────────────────────────────────────
+   ASSESSMENT
+   ────────────────────────────────────────────── */
+function renderAssess() {
+  const view = document.getElementById('view');
+  const results = state.assess.results || {};
+  const totalAnswered = Object.values(results).filter(r => r && r.state).length;
+  view.innerHTML = `<h2 class="view-title">Skill Assessment</h2>
+    <p class="view-sub">${SKILLS.length} skills · 3.0 → 4.5 · ${totalAnswered} marked</p>
+
+    ${state.assess.level ? renderAssessResult() : ''}
+
+    <div class="card" style="margin-bottom:18px">
+      <p style="font-size:13px;line-height:1.5;color:var(--muted)">
+        Each skill has an observable test. Self-assess or have a coach mark each one.
+        Mark <strong style="color:var(--success)">Reliable</strong> when you consistently meet the criteria,
+        <strong style="color:#b88521">Inconsistent</strong> when you sometimes pass,
+        or <strong style="color:var(--danger)">Not Yet</strong> if you can't yet.
+      </p>
+    </div>
+
+    <div id="skill-sections"></div>
+
+    <div class="btn-row" style="margin-top:24px">
+      <button class="btn btn-secondary" id="assess-reset">Reset All</button>
+      <button class="btn" id="assess-compute">Compute Level</button>
+    </div>`;
+
+  renderSkillSections();
+
+  document.getElementById('assess-compute').onclick = computeAndShowLevel;
+  document.getElementById('assess-reset').onclick = () => {
+    if (confirm('Clear all assessment marks and results?')) {
+      state.assess = { results: {}, computedAt: null, level: null, breakdown: null };
+      save(STORAGE.assess, state.assess);
+      renderAssess();
+    }
+  };
+}
+
+function renderSkillSections() {
+  const container = document.getElementById('skill-sections');
+  const results = state.assess.results || {};
+  let html = '';
+  LEVELS.forEach(level => {
+    const skills = SKILLS.filter(s => s.level === level);
+    const answered = skills.filter(s => results[s.id]?.state).length;
+    html += `<section class="level-section">
+      <div class="level-header">
+        <div class="level-title">${level}</div>
+        <div class="level-progress">${answered}/${skills.length} marked</div>
+      </div>
+      ${skills.map(skillCard).join('')}
+    </section>`;
+  });
+  container.innerHTML = html;
+
+  // bind chip clicks
+  container.querySelectorAll('.skill-chip').forEach(chip => {
+    chip.onclick = () => {
+      const skillId = chip.closest('.skill-card').dataset.id;
+      const newState = chip.dataset.state;
+      if (!state.assess.results) state.assess.results = {};
+      const cur = state.assess.results[skillId] || {};
+      cur.state = cur.state === newState ? null : newState;
+      state.assess.results[skillId] = cur;
+      save(STORAGE.assess, state.assess);
+      // Just update this card's chip states
+      const card = chip.closest('.skill-card');
+      card.querySelectorAll('.skill-chip').forEach(c => {
+        c.classList.remove('active-no', 'active-inc', 'active-yes');
+        if (c.dataset.state === cur.state) {
+          c.classList.add('active-' + (cur.state === 'reliable' ? 'yes' : cur.state === 'inconsistent' ? 'inc' : 'no'));
+        }
+      });
+      // Update level progress count
+      renderLevelProgressCounts();
+    };
+  });
+
+  // bind notes toggles
+  container.querySelectorAll('.skill-notes-toggle').forEach(btn => {
+    btn.onclick = () => {
+      btn.closest('.skill-card').classList.toggle('notes-open');
+    };
+  });
+
+  // bind notes inputs
+  container.querySelectorAll('.skill-notes-input textarea').forEach(ta => {
+    ta.oninput = () => {
+      const skillId = ta.closest('.skill-card').dataset.id;
+      if (!state.assess.results[skillId]) state.assess.results[skillId] = {};
+      state.assess.results[skillId].notes = ta.value;
+      save(STORAGE.assess, state.assess);
+    };
+  });
+}
+
+function renderLevelProgressCounts() {
+  const results = state.assess.results || {};
+  LEVELS.forEach((level, i) => {
+    const skills = SKILLS.filter(s => s.level === level);
+    const answered = skills.filter(s => results[s.id]?.state).length;
+    const sections = document.querySelectorAll('.level-progress');
+    if (sections[i]) sections[i].textContent = `${answered}/${skills.length} marked`;
+  });
+}
+
+function skillCard(s) {
+  const result = state.assess.results?.[s.id] || {};
+  const st = result.state;
+  const notesOpen = result.notes ? 'notes-open' : '';
+  return `<div class="skill-card ${notesOpen}" data-id="${s.id}">
+    <div class="skill-head">
+      <div class="skill-name">${escapeHtml(s.name)}</div>
+      <div class="skill-cat">${s.category}</div>
+    </div>
+    <p class="skill-test">${escapeHtml(s.test)}</p>
+    <div class="skill-criteria">PASS: ${escapeHtml(s.criteria)}</div>
+    <div class="skill-chips">
+      <div class="skill-chip ${st==='not-yet'?'active-no':''}" data-state="not-yet">Not Yet</div>
+      <div class="skill-chip ${st==='inconsistent'?'active-inc':''}" data-state="inconsistent">Inconsistent</div>
+      <div class="skill-chip ${st==='reliable'?'active-yes':''}" data-state="reliable">Reliable</div>
+    </div>
+    <button class="skill-notes-toggle">+ Notes</button>
+    <div class="skill-notes-input">
+      <textarea placeholder="Score, observations, conditions...">${escapeHtml(result.notes || '')}</textarea>
+    </div>
+  </div>`;
+}
+
+function scoreForState(s) {
+  if (s === 'reliable') return PASS_FULL;
+  if (s === 'inconsistent') return PASS_HALF;
+  return PASS_NONE;
+}
+
+function computeAndShowLevel() {
+  const results = state.assess.results || {};
+  const totalAnswered = Object.values(results).filter(r => r?.state).length;
+  if (totalAnswered < SKILLS.length * 0.5) {
+    if (!confirm(`You've only marked ${totalAnswered} of ${SKILLS.length} skills. Compute anyway?`)) return;
+  }
+  // Compute % per level
+  const breakdown = {};
+  LEVELS.forEach(level => {
+    const skills = SKILLS.filter(s => s.level === level);
+    const sum = skills.reduce((a, s) => a + scoreForState(results[s.id]?.state), 0);
+    breakdown[level] = {
+      pct: sum / skills.length,
+      reliableCount: skills.filter(s => results[s.id]?.state === 'reliable').length,
+      total: skills.length,
+      passed: skills.filter(s => results[s.id]?.state === 'reliable').map(s => s.name),
+      failed: skills.filter(s => results[s.id]?.state !== 'reliable').map(s => ({ name: s.name, state: results[s.id]?.state || 'not-marked' })),
+    };
+  });
+  // Determine level: highest where pct >= LEVEL_THRESHOLD and all lower levels >= PREREQ_THRESHOLD
+  let determined = null;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    const level = LEVELS[i];
+    const meets = breakdown[level].pct >= LEVEL_THRESHOLD;
+    const prereqs = LEVELS.slice(0, i).every(l => breakdown[l].pct >= PREREQ_THRESHOLD);
+    if (meets && prereqs) { determined = level; break; }
+  }
+  if (!determined) determined = breakdown['3.0'].pct >= 0.5 ? '3.0' : 'Below 3.0';
+
+  state.assess.level = determined;
+  state.assess.breakdown = breakdown;
+  state.assess.computedAt = new Date().toISOString();
+  save(STORAGE.assess, state.assess);
+  renderAssess();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderAssessResult() {
+  const b = state.assess.breakdown;
+  const level = state.assess.level;
+  if (!b) return '';
+
+  // Build strengths/weaknesses
+  // Strengths: reliable skills at or above the determined level (extras)
+  // Weaknesses: failed/inconsistent skills at or below the determined level
+  const determinedIdx = LEVELS.indexOf(level);
+  const strengths = [];
+  const weaknesses = [];
+
+  LEVELS.forEach((lvl, i) => {
+    const data = b[lvl];
+    if (i > determinedIdx) {
+      // Higher levels — reliable items here are strengths
+      data.passed.forEach(name => strengths.push(`${name} (${lvl})`));
+    }
+    if (i <= determinedIdx) {
+      // At-or-below — failed items are weaknesses
+      data.failed.forEach(f => {
+        if (f.state !== 'reliable') weaknesses.push(`${f.name} (${lvl})`);
+      });
+    }
+  });
+
+  const computedDate = new Date(state.assess.computedAt).toLocaleString();
+  const explanation = buildExplanation(level, b);
+
+  return `<div class="result-block">
+    <div class="result-subtitle">YOUR LEVEL · ${computedDate}</div>
+    <div class="result-level">${escapeHtml(level)}</div>
+    <p class="result-explanation">${escapeHtml(explanation)}</p>
+
+    <div class="result-bars">
+      ${LEVELS.map(lvl => {
+        const pct = Math.round(b[lvl].pct * 100);
+        return `<div class="level-bar">
+          <span class="level-bar-label">${lvl}</span>
+          <div class="level-bar-track"><div class="level-bar-fill" style="width:${pct}%"></div></div>
+          <span class="level-bar-pct">${pct}%</span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${strengths.length ? `
+      <div class="result-list-title">Strengths (above your level)</div>
+      <ul class="result-list">${strengths.slice(0, 8).map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>
+    ` : ''}
+    ${weaknesses.length ? `
+      <div class="result-list-title">Work on (at or below your level)</div>
+      <ul class="result-list">${weaknesses.slice(0, 8).map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+    ` : ''}
+  </div>`;
+}
+
+function buildExplanation(level, b) {
+  if (level === 'Below 3.0') {
+    return "You're still building foundational skills. Focus on serve consistency, getting returns in play, and learning kitchen positioning. Re-assess in 4–6 weeks.";
+  }
+  const idx = LEVELS.indexOf(level);
+  const nextLevel = LEVELS[idx + 1];
+  const thisPct = Math.round(b[level].pct * 100);
+  const nextPct = nextLevel ? Math.round(b[nextLevel].pct * 100) : null;
+  let msg = `You meet ${thisPct}% of the ${level} criteria reliably`;
+  if (idx > 0) msg += ` and have solid ${LEVELS.slice(0, idx).join('/')} foundations`;
+  msg += '. ';
+  if (nextLevel) {
+    msg += `You're at ${nextPct}% of ${nextLevel} skills — `;
+    if (nextPct >= 60) msg += `you're knocking on ${nextLevel}'s door. Push the items in the "Work on" list.`;
+    else if (nextPct >= 30) msg += `you have selective ${nextLevel} skills but need broader development to move up.`;
+    else msg += `consolidate ${level} first before chasing ${nextLevel}.`;
+  } else {
+    msg += `You're at the top of this assessment scale.`;
+  }
+  return msg;
 }
 
 /* ──────────────────────────────────────────────

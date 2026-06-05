@@ -1,10 +1,11 @@
-const CACHE = 'drill-lab-v2';
+const CACHE = 'drill-lab-v3';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './drills.js',
+  './skills.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -25,16 +26,12 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Don't cache API calls
   if (url.hostname.includes('anthropic.com')) return;
-  // Don't cache Google Fonts CSS (they change) — let browser handle
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) return;
-
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(resp => {
-        // Cache same-origin GETs only
         if (e.request.method === 'GET' && resp.ok && url.origin === self.location.origin) {
           const clone = resp.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));

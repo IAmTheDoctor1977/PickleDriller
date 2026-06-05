@@ -371,7 +371,7 @@ textarea { min-height: 90px; resize: vertical; }
   right: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
@@ -382,19 +382,19 @@ textarea { min-height: 90px; resize: vertical; }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 9px 2px;
+  padding: 8px 1px;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
   transition: color .12s ease;
 }
-.nav-btn svg { width: 22px; height: 22px; }
+.nav-btn svg { width: 20px; height: 20px; }
 .nav-btn span {
   font-family: 'DM Mono', monospace;
-  font-size: 9.5px;
+  font-size: 8.5px;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: .04em;
 }
 .nav-btn.active { color: var(--accent); }
 
@@ -537,4 +537,189 @@ textarea { min-height: 90px; resize: vertical; }
   letter-spacing: .1em;
   color: var(--muted);
   margin-top: 2px;
+}
+
+/* ───── Assessment ───── */
+.level-section {
+  margin-bottom: 24px;
+}
+.level-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--accent);
+}
+.level-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  color: var(--fg);
+  letter-spacing: .04em;
+}
+.level-progress {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.skill-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.skill-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.skill-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 17px;
+  letter-spacing: .03em;
+  line-height: 1.15;
+}
+.skill-cat {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+.skill-test {
+  font-size: 13px;
+  color: var(--fg);
+  margin-bottom: 4px;
+  line-height: 1.45;
+}
+.skill-criteria {
+  font-family: 'DM Mono', monospace;
+  font-size: 11.5px;
+  color: var(--accent);
+  margin-bottom: 8px;
+  letter-spacing: .04em;
+}
+.skill-chips {
+  display: flex;
+  gap: 6px;
+}
+.skill-chip {
+  flex: 1;
+  padding: 8px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  transition: all .12s ease;
+}
+.skill-chip.active-no { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: var(--danger); }
+.skill-chip.active-inc { background: color-mix(in srgb, #b88521 18%, transparent); color: #b88521; border-color: #b88521; }
+.skill-chip.active-yes { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: var(--success); }
+
+.skill-notes-toggle {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-top: 8px;
+  padding: 0;
+  cursor: pointer;
+}
+.skill-notes-input {
+  margin-top: 6px;
+  display: none;
+}
+.skill-card.notes-open .skill-notes-input { display: block; }
+
+.result-block {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  margin-bottom: 18px;
+}
+.result-level {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 56px;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: .03em;
+}
+.result-subtitle {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.result-explanation {
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+.result-list-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+.result-list {
+  font-size: 13px;
+  padding-left: 16px;
+  line-height: 1.55;
+}
+.result-list li {
+  margin-bottom: 3px;
+}
+.result-bars {
+  margin-top: 12px;
+}
+.level-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.level-bar-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  min-width: 32px;
+  color: var(--muted);
+}
+.level-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.level-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .3s ease;
+}
+.level-bar-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 36px;
+  text-align: right;
 }
