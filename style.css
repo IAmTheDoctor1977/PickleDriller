@@ -371,7 +371,7 @@ textarea { min-height: 90px; resize: vertical; }
   right: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
@@ -382,19 +382,19 @@ textarea { min-height: 90px; resize: vertical; }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 8px 1px;
+  padding: 7px 1px;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
   transition: color .12s ease;
 }
-.nav-btn svg { width: 20px; height: 20px; }
+.nav-btn svg { width: 18px; height: 18px; }
 .nav-btn span {
   font-family: 'DM Mono', monospace;
-  font-size: 8.5px;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .02em;
 }
 .nav-btn.active { color: var(--accent); }
 
@@ -722,4 +722,142 @@ textarea { min-height: 90px; resize: vertical; }
   color: var(--muted);
   min-width: 36px;
   text-align: right;
+}
+
+/* ───── Schedule ───── */
+.week-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.week-range {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: .03em;
+}
+.week-progress {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: .06em;
+}
+.sch-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border-left: 3px solid var(--accent);
+}
+.sch-day.completed {
+  opacity: .65;
+  border-left-color: var(--success);
+}
+.sch-day.completed .sch-day-label,
+.sch-day.completed .sch-day-focus {
+  text-decoration: line-through;
+}
+.sch-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.sch-day-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: .03em;
+  line-height: 1.1;
+}
+.sch-day-mode {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.sch-day-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.sch-day-focus {
+  font-size: 14px;
+  color: var(--fg);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.sch-day-summary {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.sch-day-body {
+  display: none;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  margin-bottom: 10px;
+}
+.sch-day.open .sch-day-body { display: block; }
+.sch-day-actions {
+  display: flex;
+  gap: 6px;
+}
+.sch-day-actions .btn {
+  font-size: 13px;
+  padding: 9px 8px;
+  width: auto;
+  flex: 1;
+}
+.sch-day-actions .btn.btn-small-secondary {
+  background: var(--surface-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.sch-day-actions .btn.complete {
+  background: var(--success);
+}
+.sch-mini-drill {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.sch-mini-drill:last-child { border-bottom: none; }
+.sch-mini-drill-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.sch-mini-drill-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: .02em;
+}
+.sch-mini-drill-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sch-mini-drill-desc {
+  font-size: 12.5px;
+  color: var(--fg);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.sch-mini-drill-notes {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 4px;
 }

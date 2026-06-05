@@ -7,6 +7,7 @@ const STORAGE = {
   apiKey:   'dl_api_key',
   activeTab:'dl_tab',
   assess:   'dl_assessment',
+  schedule: 'dl_schedule',
 };
 
 function load(key, fallback) {
@@ -23,6 +24,7 @@ const state = {
   draft:    null,
   plan:     null,
   assess:   load(STORAGE.assess, { results: {}, computedAt: null, level: null, breakdown: null }),
+  schedule: load(STORAGE.schedule, null),
 };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -46,6 +48,7 @@ const VIEWS = {
   generate: renderGenerate,
   gear:     renderGear,
   assess:   renderAssess,
+  schedule: renderSchedule,
 };
 
 function setTab(tab) {
@@ -57,7 +60,7 @@ function setTab(tab) {
   const labels = {
     drills: 'Drills', log: 'Log Session', history: 'History',
     random: 'Random', generate: 'AI Generate', gear: 'Gear',
-    assess: 'Assessment'
+    assess: 'Assessment', schedule: 'Weekly Schedule'
   };
   document.getElementById('topbar-tab').textContent = labels[tab];
   VIEWS[tab]();
@@ -303,8 +306,8 @@ function renderRandom() {
   };
 }
 
-function generateRandomPlan(targetMin, mode) {
-  const filter = d => mode === 'any' || d.tags.includes(mode);
+function generateRandomPlan(targetMin, mode, excludeIds = new Set()) {
+  const filter = d => (mode === 'any' || d.tags.includes(mode)) && !excludeIds.has(d.id);
   const warmups = DRILLS.filter(d => d.role === 'warmup' && filter(d));
   const cooldowns = DRILLS.filter(d => d.role === 'cooldown' && filter(d));
   const main = DRILLS.filter(d => d.role === 'main' && filter(d));
@@ -835,6 +838,179 @@ function buildExplanation(level, b) {
     msg += `You're at the top of this assessment scale.`;
   }
   return msg;
+}
+
+/* ──────────────────────────────────────────────
+   WEEKLY SCHEDULE
+   ────────────────────────────────────────────── */
+function getMondayOfWeek(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;  // Sun = -6, Mon = 0, Tue = -1, etc.
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatWeekRange(monIso) {
+  const mon = new Date(monIso + 'T00:00');
+  const sun = new Date(mon);
+  sun.setDate(sun.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+function buildScheduleForWeek() {
+  // Day 1: Solo, 45 min
+  const day1Plan = generateRandomPlan(45, 'solo');
+  const day1Ids = new Set(day1Plan.drills.map(d => d.id));
+  // Day 2: Partner, 60 min
+  const day2Plan = generateRandomPlan(60, 'partner');
+  // Day 3: Solo, 45 min, avoiding Day 1's drills
+  const day3Plan = generateRandomPlan(45, 'solo', day1Ids);
+  day1Plan.focus = 'Solo (wall/machine)';
+  day2Plan.focus = 'Partner practice';
+  day3Plan.focus = 'Solo (wall/machine)';
+  return {
+    weekStart: getMondayOfWeek(),
+    days: [
+      { num: 1, mode: 'solo',    duration: 45, plan: day1Plan, completed: false },
+      { num: 2, mode: 'partner', duration: 60, plan: day2Plan, completed: false },
+      { num: 3, mode: 'solo',    duration: 45, plan: day3Plan, completed: false },
+    ]
+  };
+}
+
+function renderSchedule() {
+  const view = document.getElementById('view');
+
+  // Empty state
+  if (!state.schedule || !state.schedule.days) {
+    view.innerHTML = `<h2 class="view-title">Weekly Schedule</h2>
+      <p class="view-sub">3 days · 2 solo + 1 partner</p>
+      <div class="card">
+        <p style="font-size:14px;line-height:1.55;margin-bottom:12px">
+          Build a focused 3-day week:
+        </p>
+        <ul style="font-size:13px;color:var(--muted);padding-left:18px;line-height:1.6;margin-bottom:12px">
+          <li><strong style="color:var(--fg)">Day 1</strong> — Solo (wall/machine), 45 min</li>
+          <li><strong style="color:var(--fg)">Day 2</strong> — Partner practice, 60 min</li>
+          <li><strong style="color:var(--fg)">Day 3</strong> — Solo (wall/machine), 45 min (different drills from Day 1)</li>
+        </ul>
+        <p style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:14px">
+          Each day uses the smart shuffle: warm-up first, mixed categories, no back-to-back high-intensity, cool-down last. Regenerate any day individually.
+        </p>
+        <button class="btn" id="sch-build">Build This Week's Plan</button>
+      </div>`;
+    document.getElementById('sch-build').onclick = () => {
+      state.schedule = buildScheduleForWeek();
+      save(STORAGE.schedule, state.schedule);
+      renderSchedule();
+    };
+    return;
+  }
+
+  const sch = state.schedule;
+  const done = sch.days.filter(d => d.completed).length;
+  const totalMin = sch.days.reduce((a, d) => a + d.plan.drills.reduce((b, x) => b + x.duration, 0), 0);
+
+  view.innerHTML = `<h2 class="view-title">Weekly Schedule</h2>
+    <p class="view-sub">${done}/3 done · ${totalMin} min planned</p>
+    <div class="week-header">
+      <div class="week-range">${formatWeekRange(sch.weekStart)}</div>
+      <div class="week-progress">${done}/3 COMPLETE</div>
+    </div>
+    ${sch.days.map(scheduleDayCard).join('')}
+    <button class="btn btn-secondary" id="sch-newweek" style="margin-top:14px">Start New Week</button>`;
+
+  // Toggle day open/close on head tap
+  view.querySelectorAll('.sch-day-head').forEach(h => {
+    h.onclick = () => h.closest('.sch-day').classList.toggle('open');
+  });
+
+  // Action button handlers
+  view.querySelectorAll('[data-act]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const act = btn.dataset.act;
+      const dayNum = +btn.dataset.day;
+      const day = state.schedule.days.find(d => d.num === dayNum);
+      if (!day) return;
+
+      if (act === 'regen') {
+        if (!confirm(`Regenerate Day ${dayNum}'s session?`)) return;
+        // Exclude other days' drills to maintain variety
+        const otherIds = new Set();
+        state.schedule.days.filter(d => d.num !== dayNum).forEach(d => {
+          d.plan.drills.forEach(x => otherIds.add(x.id));
+        });
+        day.plan = generateRandomPlan(day.duration, day.mode, otherIds);
+        day.plan.focus = day.mode === 'solo' ? 'Solo (wall/machine)' : 'Partner practice';
+        day.completed = false;
+        save(STORAGE.schedule, state.schedule);
+        renderSchedule();
+      } else if (act === 'log') {
+        state.draft = {
+          id: uid(), date: today(),
+          focus: `Day ${dayNum} — ${day.plan.focus}`,
+          duration: day.plan.drills.reduce((a, x) => a + x.duration, 0),
+          partnerSolo: day.mode,
+          performance: '',
+          drillIds: day.plan.drills.map(x => x.id),
+          notes: '',
+        };
+        setTab('log');
+      } else if (act === 'complete') {
+        day.completed = !day.completed;
+        save(STORAGE.schedule, state.schedule);
+        renderSchedule();
+      }
+    };
+  });
+
+  document.getElementById('sch-newweek').onclick = () => {
+    if (!confirm('Start a new week? Current schedule will be replaced.')) return;
+    state.schedule = buildScheduleForWeek();
+    save(STORAGE.schedule, state.schedule);
+    renderSchedule();
+  };
+}
+
+function scheduleDayCard(day) {
+  const total = day.plan.drills.reduce((a, x) => a + x.duration, 0);
+  const drillNames = day.plan.drills
+    .map(x => { const d = DRILLS.find(z => z.id === x.id); return d ? d.name : ''; })
+    .filter(Boolean).join(' · ');
+
+  const body = day.plan.drills.map(x => {
+    const d = DRILLS.find(z => z.id === x.id);
+    if (!d) return '';
+    return `<div class="sch-mini-drill">
+      <div class="sch-mini-drill-head">
+        <span class="sch-mini-drill-name">${escapeHtml(d.name)}</span>
+        <span class="sch-mini-drill-time">${x.duration} min · ${d.intensity}</span>
+      </div>
+      <div class="sch-mini-drill-desc">${escapeHtml(d.description)}</div>
+      ${d.notes ? `<div class="sch-mini-drill-notes">${escapeHtml(d.notes)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="sch-day ${day.completed ? 'completed' : ''}" data-day="${day.num}">
+    <div class="sch-day-head">
+      <div>
+        <div class="sch-day-label">Day ${day.num}</div>
+        <div class="sch-day-mode">${day.mode === 'solo' ? 'Solo · Wall / Machine' : 'Partner Practice'}</div>
+      </div>
+      <div class="sch-day-time">${total} min</div>
+    </div>
+    <div class="sch-day-focus">${escapeHtml(day.plan.focus)}</div>
+    <div class="sch-day-summary">${escapeHtml(drillNames)}</div>
+    <div class="sch-day-body">${body}</div>
+    <div class="sch-day-actions">
+      <button class="btn btn-small-secondary" data-act="regen" data-day="${day.num}">Regen</button>
+      <button class="btn btn-small-secondary" data-act="log" data-day="${day.num}">Log</button>
+      <button class="btn ${day.completed ? '' : 'complete'}" data-act="complete" data-day="${day.num}">${day.completed ? 'Undo' : 'Done'}</button>
+    </div>
+  </div>`;
 }
 
 /* ──────────────────────────────────────────────
