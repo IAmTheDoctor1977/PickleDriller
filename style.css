@@ -9,7 +9,7 @@ body {
   min-height: 100dvh;
   font-size: 15px;
   line-height: 1.5;
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
   -webkit-font-smoothing: antialiased;
 }
 
