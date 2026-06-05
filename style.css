@@ -95,6 +95,7 @@ h1, h2, h3, .display { font-family: 'Bebas Neue', sans-serif; letter-spacing: .0
 /* ───── Main view ───── */
 main {
   padding: 18px;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
   max-width: 720px;
   margin: 0 auto;
 }
