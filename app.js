@@ -23,9 +23,31 @@ const state = {
   activeTab:localStorage.getItem(STORAGE.activeTab) || 'drills',
   draft:    null,
   plan:     null,
-  assess:   load(STORAGE.assess, { results: {}, computedAt: null, level: null, breakdown: null }),
+  assess:   load(STORAGE.assess, null),
   schedule: load(STORAGE.schedule, null),
 };
+
+// Migrate older single-format assess data to new doubles/singles structure
+if (state.assess && state.assess.results && !state.assess.doubles) {
+  state.assess = {
+    format: 'doubles',
+    doubles: {
+      results: state.assess.results,
+      level: state.assess.level,
+      breakdown: state.assess.breakdown,
+      computedAt: state.assess.computedAt,
+    },
+    singles: { results: {}, level: null, breakdown: null, computedAt: null },
+  };
+  save(STORAGE.assess, state.assess);
+}
+if (!state.assess) {
+  state.assess = {
+    format: 'doubles',
+    doubles: { results: {}, level: null, breakdown: null, computedAt: null },
+    singles: { results: {}, level: null, breakdown: null, computedAt: null },
+  };
+}
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -589,23 +611,34 @@ function renderGearList() {
 }
 
 /* ──────────────────────────────────────────────
-   ASSESSMENT
+   ASSESSMENT (doubles + singles)
    ────────────────────────────────────────────── */
+function getActiveAssess() { return state.assess[state.assess.format]; }
+function getActiveSkills() { return SKILLS_BY_FORMAT[state.assess.format]; }
+
 function renderAssess() {
   const view = document.getElementById('view');
-  const results = state.assess.results || {};
+  const skills = getActiveSkills();
+  const a = getActiveAssess();
+  const results = a.results || {};
   const totalAnswered = Object.values(results).filter(r => r && r.state).length;
-  view.innerHTML = `<h2 class="view-title">Skill Assessment</h2>
-    <p class="view-sub">${SKILLS.length} skills · 3.0 → 4.5 · ${totalAnswered} marked</p>
 
-    ${state.assess.level ? renderAssessResult() : ''}
+  view.innerHTML = `<h2 class="view-title">Skill Assessment</h2>
+    <p class="view-sub">${skills.length} skills · 3.0 → 4.5 · ${totalAnswered} marked</p>
+
+    <div class="format-toggle">
+      <div class="fmt-chip ${state.assess.format==='doubles'?'active':''}" data-fmt="doubles">Doubles</div>
+      <div class="fmt-chip ${state.assess.format==='singles'?'active':''}" data-fmt="singles">Singles</div>
+    </div>
+
+    ${a.level ? renderAssessResult() : ''}
 
     <div class="card" style="margin-bottom:18px">
       <p style="font-size:13px;line-height:1.5;color:var(--muted)">
-        Each skill has an observable test. Self-assess or have a coach mark each one.
-        Mark <strong style="color:var(--success)">Reliable</strong> when you consistently meet the criteria,
-        <strong style="color:#b88521">Inconsistent</strong> when you sometimes pass,
-        or <strong style="color:var(--danger)">Not Yet</strong> if you can't yet.
+        Each skill has an observable test. Self-assess or have a coach mark each.
+        Mark <strong style="color:var(--success)">Reliable</strong> when you consistently meet criteria,
+        <strong style="color:#b88521">Inconsistent</strong> when sometimes,
+        or <strong style="color:var(--danger)">Not Yet</strong> if you can't.
       </p>
     </div>
 
@@ -618,10 +651,19 @@ function renderAssess() {
 
   renderSkillSections();
 
+  // Format toggle
+  document.querySelectorAll('.fmt-chip').forEach(c => {
+    c.onclick = () => {
+      state.assess.format = c.dataset.fmt;
+      save(STORAGE.assess, state.assess);
+      renderAssess();
+    };
+  });
+
   document.getElementById('assess-compute').onclick = computeAndShowLevel;
   document.getElementById('assess-reset').onclick = () => {
-    if (confirm('Clear all assessment marks and results?')) {
-      state.assess = { results: {}, computedAt: null, level: null, breakdown: null };
+    if (confirm(`Clear all ${state.assess.format} marks and results?`)) {
+      state.assess[state.assess.format] = { results: {}, computedAt: null, level: null, breakdown: null };
       save(STORAGE.assess, state.assess);
       renderAssess();
     }
@@ -630,32 +672,33 @@ function renderAssess() {
 
 function renderSkillSections() {
   const container = document.getElementById('skill-sections');
-  const results = state.assess.results || {};
+  const a = getActiveAssess();
+  const skills = getActiveSkills();
+  const results = a.results || {};
   let html = '';
   LEVELS.forEach(level => {
-    const skills = SKILLS.filter(s => s.level === level);
-    const answered = skills.filter(s => results[s.id]?.state).length;
+    const items = skills.filter(s => s.level === level);
+    const answered = items.filter(s => results[s.id]?.state).length;
     html += `<section class="level-section">
       <div class="level-header">
         <div class="level-title">${level}</div>
-        <div class="level-progress">${answered}/${skills.length} marked</div>
+        <div class="level-progress">${answered}/${items.length} marked</div>
       </div>
-      ${skills.map(skillCard).join('')}
+      ${items.map(skillCard).join('')}
     </section>`;
   });
   container.innerHTML = html;
 
-  // bind chip clicks
   container.querySelectorAll('.skill-chip').forEach(chip => {
     chip.onclick = () => {
       const skillId = chip.closest('.skill-card').dataset.id;
       const newState = chip.dataset.state;
-      if (!state.assess.results) state.assess.results = {};
-      const cur = state.assess.results[skillId] || {};
+      const a = getActiveAssess();
+      if (!a.results) a.results = {};
+      const cur = a.results[skillId] || {};
       cur.state = cur.state === newState ? null : newState;
-      state.assess.results[skillId] = cur;
+      a.results[skillId] = cur;
       save(STORAGE.assess, state.assess);
-      // Just update this card's chip states
       const card = chip.closest('.skill-card');
       card.querySelectorAll('.skill-chip').forEach(c => {
         c.classList.remove('active-no', 'active-inc', 'active-yes');
@@ -663,41 +706,40 @@ function renderSkillSections() {
           c.classList.add('active-' + (cur.state === 'reliable' ? 'yes' : cur.state === 'inconsistent' ? 'inc' : 'no'));
         }
       });
-      // Update level progress count
       renderLevelProgressCounts();
     };
   });
 
-  // bind notes toggles
   container.querySelectorAll('.skill-notes-toggle').forEach(btn => {
-    btn.onclick = () => {
-      btn.closest('.skill-card').classList.toggle('notes-open');
-    };
+    btn.onclick = () => btn.closest('.skill-card').classList.toggle('notes-open');
   });
 
-  // bind notes inputs
   container.querySelectorAll('.skill-notes-input textarea').forEach(ta => {
     ta.oninput = () => {
       const skillId = ta.closest('.skill-card').dataset.id;
-      if (!state.assess.results[skillId]) state.assess.results[skillId] = {};
-      state.assess.results[skillId].notes = ta.value;
+      const a = getActiveAssess();
+      if (!a.results[skillId]) a.results[skillId] = {};
+      a.results[skillId].notes = ta.value;
       save(STORAGE.assess, state.assess);
     };
   });
 }
 
 function renderLevelProgressCounts() {
-  const results = state.assess.results || {};
+  const a = getActiveAssess();
+  const skills = getActiveSkills();
+  const results = a.results || {};
   LEVELS.forEach((level, i) => {
-    const skills = SKILLS.filter(s => s.level === level);
-    const answered = skills.filter(s => results[s.id]?.state).length;
+    const items = skills.filter(s => s.level === level);
+    const answered = items.filter(s => results[s.id]?.state).length;
     const sections = document.querySelectorAll('.level-progress');
-    if (sections[i]) sections[i].textContent = `${answered}/${skills.length} marked`;
+    if (sections[i]) sections[i].textContent = `${answered}/${items.length} marked`;
   });
 }
 
 function skillCard(s) {
-  const result = state.assess.results?.[s.id] || {};
+  const a = getActiveAssess();
+  const result = a.results?.[s.id] || {};
   const st = result.state;
   const notesOpen = result.notes ? 'notes-open' : '';
   return `<div class="skill-card ${notesOpen}" data-id="${s.id}">
@@ -726,25 +768,25 @@ function scoreForState(s) {
 }
 
 function computeAndShowLevel() {
-  const results = state.assess.results || {};
+  const a = getActiveAssess();
+  const skills = getActiveSkills();
+  const results = a.results || {};
   const totalAnswered = Object.values(results).filter(r => r?.state).length;
-  if (totalAnswered < SKILLS.length * 0.5) {
-    if (!confirm(`You've only marked ${totalAnswered} of ${SKILLS.length} skills. Compute anyway?`)) return;
+  if (totalAnswered < skills.length * 0.5) {
+    if (!confirm(`You've only marked ${totalAnswered} of ${skills.length}. Compute anyway?`)) return;
   }
-  // Compute % per level
   const breakdown = {};
   LEVELS.forEach(level => {
-    const skills = SKILLS.filter(s => s.level === level);
-    const sum = skills.reduce((a, s) => a + scoreForState(results[s.id]?.state), 0);
+    const items = skills.filter(s => s.level === level);
+    const sum = items.reduce((acc, s) => acc + scoreForState(results[s.id]?.state), 0);
     breakdown[level] = {
-      pct: sum / skills.length,
-      reliableCount: skills.filter(s => results[s.id]?.state === 'reliable').length,
-      total: skills.length,
-      passed: skills.filter(s => results[s.id]?.state === 'reliable').map(s => s.name),
-      failed: skills.filter(s => results[s.id]?.state !== 'reliable').map(s => ({ name: s.name, state: results[s.id]?.state || 'not-marked' })),
+      pct: sum / items.length,
+      reliableCount: items.filter(s => results[s.id]?.state === 'reliable').length,
+      total: items.length,
+      passed: items.filter(s => results[s.id]?.state === 'reliable').map(s => s.name),
+      failed: items.filter(s => results[s.id]?.state !== 'reliable').map(s => ({ name: s.name, state: results[s.id]?.state || 'not-marked' })),
     };
   });
-  // Determine level: highest where pct >= LEVEL_THRESHOLD and all lower levels >= PREREQ_THRESHOLD
   let determined = null;
   for (let i = LEVELS.length - 1; i >= 0; i--) {
     const level = LEVELS[i];
@@ -754,22 +796,20 @@ function computeAndShowLevel() {
   }
   if (!determined) determined = breakdown['3.0'].pct >= 0.5 ? '3.0' : 'Below 3.0';
 
-  state.assess.level = determined;
-  state.assess.breakdown = breakdown;
-  state.assess.computedAt = new Date().toISOString();
+  a.level = determined;
+  a.breakdown = breakdown;
+  a.computedAt = new Date().toISOString();
   save(STORAGE.assess, state.assess);
   renderAssess();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderAssessResult() {
-  const b = state.assess.breakdown;
-  const level = state.assess.level;
+  const a = getActiveAssess();
+  const b = a.breakdown;
+  const level = a.level;
   if (!b) return '';
 
-  // Build strengths/weaknesses
-  // Strengths: reliable skills at or above the determined level (extras)
-  // Weaknesses: failed/inconsistent skills at or below the determined level
   const determinedIdx = LEVELS.indexOf(level);
   const strengths = [];
   const weaknesses = [];
@@ -777,22 +817,21 @@ function renderAssessResult() {
   LEVELS.forEach((lvl, i) => {
     const data = b[lvl];
     if (i > determinedIdx) {
-      // Higher levels — reliable items here are strengths
       data.passed.forEach(name => strengths.push(`${name} (${lvl})`));
     }
     if (i <= determinedIdx) {
-      // At-or-below — failed items are weaknesses
       data.failed.forEach(f => {
         if (f.state !== 'reliable') weaknesses.push(`${f.name} (${lvl})`);
       });
     }
   });
 
-  const computedDate = new Date(state.assess.computedAt).toLocaleString();
+  const computedDate = new Date(a.computedAt).toLocaleString();
   const explanation = buildExplanation(level, b);
+  const fmtLabel = state.assess.format === 'doubles' ? 'DOUBLES' : 'SINGLES';
 
   return `<div class="result-block">
-    <div class="result-subtitle">YOUR LEVEL · ${computedDate}</div>
+    <div class="result-subtitle">${fmtLabel} LEVEL · ${computedDate}</div>
     <div class="result-level">${escapeHtml(level)}</div>
     <p class="result-explanation">${escapeHtml(explanation)}</p>
 
@@ -820,22 +859,22 @@ function renderAssessResult() {
 
 function buildExplanation(level, b) {
   if (level === 'Below 3.0') {
-    return "You're still building foundational skills. Focus on serve consistency, getting returns in play, and learning kitchen positioning. Re-assess in 4–6 weeks.";
+    return "You're still building foundational skills. Focus on the 3.0 fundamentals and re-assess in 4–6 weeks.";
   }
   const idx = LEVELS.indexOf(level);
   const nextLevel = LEVELS[idx + 1];
   const thisPct = Math.round(b[level].pct * 100);
   const nextPct = nextLevel ? Math.round(b[nextLevel].pct * 100) : null;
-  let msg = `You meet ${thisPct}% of the ${level} criteria reliably`;
+  let msg = `You meet ${thisPct}% of ${level} criteria reliably`;
   if (idx > 0) msg += ` and have solid ${LEVELS.slice(0, idx).join('/')} foundations`;
   msg += '. ';
   if (nextLevel) {
     msg += `You're at ${nextPct}% of ${nextLevel} skills — `;
-    if (nextPct >= 60) msg += `you're knocking on ${nextLevel}'s door. Push the items in the "Work on" list.`;
-    else if (nextPct >= 30) msg += `you have selective ${nextLevel} skills but need broader development to move up.`;
+    if (nextPct >= 60) msg += `knocking on ${nextLevel}'s door. Push the "Work on" items.`;
+    else if (nextPct >= 30) msg += `selective ${nextLevel} skills but need broader development to move up.`;
     else msg += `consolidate ${level} first before chasing ${nextLevel}.`;
   } else {
-    msg += `You're at the top of this assessment scale.`;
+    msg += `Top of this assessment scale.`;
   }
   return msg;
 }
@@ -922,11 +961,6 @@ function renderSchedule() {
     ${sch.days.map(scheduleDayCard).join('')}
     <button class="btn btn-secondary" id="sch-newweek" style="margin-top:14px">Start New Week</button>`;
 
-  // Toggle day open/close on head tap
-  view.querySelectorAll('.sch-day-head').forEach(h => {
-    h.onclick = () => h.closest('.sch-day').classList.toggle('open');
-  });
-
   // Action button handlers
   view.querySelectorAll('[data-act]').forEach(btn => {
     btn.onclick = (e) => {
@@ -977,10 +1011,6 @@ function renderSchedule() {
 
 function scheduleDayCard(day) {
   const total = day.plan.drills.reduce((a, x) => a + x.duration, 0);
-  const drillNames = day.plan.drills
-    .map(x => { const d = DRILLS.find(z => z.id === x.id); return d ? d.name : ''; })
-    .filter(Boolean).join(' · ');
-
   const body = day.plan.drills.map(x => {
     const d = DRILLS.find(z => z.id === x.id);
     if (!d) return '';
@@ -1003,7 +1033,6 @@ function scheduleDayCard(day) {
       <div class="sch-day-time">${total} min</div>
     </div>
     <div class="sch-day-focus">${escapeHtml(day.plan.focus)}</div>
-    <div class="sch-day-summary">${escapeHtml(drillNames)}</div>
     <div class="sch-day-body">${body}</div>
     <div class="sch-day-actions">
       <button class="btn btn-small-secondary" data-act="regen" data-day="${day.num}">Regen</button>

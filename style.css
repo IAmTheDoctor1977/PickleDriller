@@ -769,7 +769,6 @@ textarea { min-height: 90px; resize: vertical; }
   align-items: flex-start;
   gap: 10px;
   margin-bottom: 6px;
-  cursor: pointer;
 }
 .sch-day-label {
   font-family: 'Bebas Neue', sans-serif;
@@ -794,22 +793,14 @@ textarea { min-height: 90px; resize: vertical; }
 .sch-day-focus {
   font-size: 14px;
   color: var(--fg);
-  margin-bottom: 4px;
+  margin-bottom: 10px;
   font-weight: 500;
 }
-.sch-day-summary {
-  font-size: 12.5px;
-  color: var(--muted);
-  line-height: 1.45;
-  margin-bottom: 10px;
-}
 .sch-day-body {
-  display: none;
   border-top: 1px dashed var(--border);
-  padding-top: 12px;
-  margin-bottom: 10px;
+  padding-top: 10px;
+  margin-bottom: 12px;
 }
-.sch-day.open .sch-day-body { display: block; }
 .sch-day-actions {
   display: flex;
   gap: 6px;
@@ -860,4 +851,32 @@ textarea { min-height: 90px; resize: vertical; }
   color: var(--muted);
   font-style: italic;
   margin-top: 4px;
+}
+
+/* ───── Format toggle (Doubles/Singles) ───── */
+.format-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.fmt-chip {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.fmt-chip.active {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
