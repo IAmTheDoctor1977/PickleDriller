@@ -107,11 +107,11 @@ const DRILLS = [
 
   // ───── THIRD SHOT (10) ─────
   { id: 'th1', name: 'Third Shot Drop Reps', category: 'third-shot', role: 'main',
-    description: 'Partner feeds returns to baseline. You drop into kitchen corners. Reset, repeat.',
+    description: 'Ball machine or partner feeds returns to baseline. You drop into kitchen corners. Reset, repeat.',
     duration: 12, intensity: 'medium', equipment: ['partner','ball-machine'], tags: ['solo','partner'],
     notes: 'Pace over arc.' },
   { id: 'th2', name: 'Third Shot Drive Reps', category: 'third-shot', role: 'main',
-    description: 'Partner feeds returns. Drive low and hard at opponent\'s hip/chest. Track first-strike conversion.',
+    description: 'Ball machine or partner feeds returns. Drive low and hard at opponent\'s hip/chest. Track first-strike conversion.',
     duration: 10, intensity: 'medium-high', equipment: ['partner','ball-machine'], tags: ['solo','partner'],
     notes: '1-2 paddle-widths above the net.' },
   { id: 'th3', name: 'Third + Fifth Shot Read', category: 'third-shot', role: 'main',
@@ -143,7 +143,7 @@ const DRILLS = [
     duration: 10, intensity: 'high', equipment: ['partner'], tags: ['partner'],
     notes: 'Trains the move you actually make after a drive.' },
   { id: 'th10', name: 'Third Under Fatigue', category: 'third-shot', role: 'main',
-    description: '10 jumping jacks, then partner feeds 5 returns. Drop or drive each. Repeat 3 sets.',
+    description: '10 jumping jacks, then ball machine or partner feeds 5 returns. Drop or drive each. Repeat 3 sets.',
     duration: 8, intensity: 'high', equipment: ['partner','ball-machine'], tags: ['solo','partner'],
     notes: 'You play tournaments tired. Practice tired.' },
 
@@ -207,7 +207,7 @@ const DRILLS = [
     duration: 8, intensity: 'medium-high', equipment: ['partner','ball-machine'], tags: ['solo','partner'],
     notes: 'The "approach" most rec players never practice.' },
   { id: 'tr5', name: 'Half-Volley Forehand', category: 'transition', role: 'main',
-    description: 'Partner feeds short bounces at your FH side. Half-volley back into their court.',
+    description: 'Ball machine or partner feeds short bounces at your FH side. Half-volley back into their court.',
     duration: 6, intensity: 'medium-high', equipment: ['partner','ball-machine'], tags: ['solo','partner'],
     notes: 'Soft hands, low paddle, lift through contact.' },
   { id: 'tr6', name: 'Half-Volley Backhand', category: 'transition', role: 'main',
@@ -344,7 +344,7 @@ const DRILLS = [
   // ───── FOOTWORK (9) ─────
   { id: 'fw1', name: 'Split-Step Reaction', category: 'footwork', role: 'main',
     description: 'Partner or trainer points L/R/up/back randomly. Split-step then 2-step move in that direction. 30 reps.',
-    duration: 5, intensity: 'high', equipment: ['none','partner'], tags: ['solo','partner'],
+    duration: 5, intensity: 'high', equipment: ['partner'], tags: ['partner'],
     notes: 'Foundation of every kitchen exchange.' },
   { id: 'fw2', name: 'Ladder Side-Shuffle', category: 'footwork', role: 'main',
     description: 'Agility ladder or chalk lines. Side-shuffle in/out of boxes. 3 sets each direction.',

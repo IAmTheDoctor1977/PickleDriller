@@ -329,7 +329,16 @@ function renderRandom() {
 }
 
 function generateRandomPlan(targetMin, mode, excludeIds = new Set()) {
-  const filter = d => (mode === 'any' || d.tags.includes(mode)) && !excludeIds.has(d.id);
+  const filter = d => {
+    if (excludeIds.has(d.id)) return false;
+    if (mode === 'any') return true;
+    if (mode === 'solo') {
+      // Must be tagged solo AND must have at least one non-partner equipment option
+      return d.tags.includes('solo') && d.equipment.some(e => e !== 'partner');
+    }
+    if (mode === 'partner') return d.tags.includes('partner');
+    return true;
+  };
   const warmups = DRILLS.filter(d => d.role === 'warmup' && filter(d));
   const cooldowns = DRILLS.filter(d => d.role === 'cooldown' && filter(d));
   const main = DRILLS.filter(d => d.role === 'main' && filter(d));
