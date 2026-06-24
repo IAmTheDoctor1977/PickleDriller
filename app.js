@@ -302,8 +302,10 @@ function renderRandom() {
     <label class="field"><span>Mode</span>
       <div class="chips" id="r-mode">
         <div class="chip active" data-v="any">Any</div>
-        <div class="chip" data-v="solo">Solo only</div>
-        <div class="chip" data-v="partner">Partner only</div>
+        <div class="chip" data-v="solo">Solo</div>
+        <div class="chip" data-v="wall">Wall</div>
+        <div class="chip" data-v="machine">Machine</div>
+        <div class="chip" data-v="partner">Partner</div>
       </div></label>
     <button class="btn" id="r-roll">Roll Practice</button>
     <div id="r-out" style="margin-top:18px"></div>`;
@@ -328,17 +330,21 @@ function renderRandom() {
   };
 }
 
+function modeFilter(d, mode, excludeIds = new Set()) {
+  if (excludeIds.has(d.id)) return false;
+  if (mode === 'any') return true;
+  if (mode === 'partner') return d.tags.includes('partner');
+  // All solo-family modes require the solo tag
+  if (!d.tags.includes('solo')) return false;
+  const hasNone = d.equipment.includes('none');
+  if (mode === 'solo')    return d.equipment.some(e => e !== 'partner');
+  if (mode === 'wall')    return d.equipment.includes('wall') || hasNone;
+  if (mode === 'machine') return d.equipment.includes('ball-machine') || hasNone;
+  return true;
+}
+
 function generateRandomPlan(targetMin, mode, excludeIds = new Set()) {
-  const filter = d => {
-    if (excludeIds.has(d.id)) return false;
-    if (mode === 'any') return true;
-    if (mode === 'solo') {
-      // Must be tagged solo AND must have at least one non-partner equipment option
-      return d.tags.includes('solo') && d.equipment.some(e => e !== 'partner');
-    }
-    if (mode === 'partner') return d.tags.includes('partner');
-    return true;
-  };
+  const filter = d => modeFilter(d, mode, excludeIds);
   const warmups = DRILLS.filter(d => d.role === 'warmup' && filter(d));
   const cooldowns = DRILLS.filter(d => d.role === 'cooldown' && filter(d));
   const main = DRILLS.filter(d => d.role === 'main' && filter(d));
@@ -454,8 +460,10 @@ function renderGenerate() {
     <label class="field"><span>Mode</span>
       <div class="chips" id="g-mode">
         <div class="chip active" data-v="any">Any</div>
-        <div class="chip" data-v="solo">Solo only</div>
-        <div class="chip" data-v="partner">Partner only</div>
+        <div class="chip" data-v="solo">Solo</div>
+        <div class="chip" data-v="wall">Wall</div>
+        <div class="chip" data-v="machine">Machine</div>
+        <div class="chip" data-v="partner">Partner</div>
       </div></label>
     <button class="btn" id="g-go">Generate Session</button>
     <div id="g-out" style="margin-top:18px"></div>`;
@@ -488,7 +496,7 @@ async function generateAIPlan(targetMin, mode) {
     out.innerHTML = `<div class="warn">No session history yet. Log a couple of sessions first, or use Randomize.</div>`;
     return;
   }
-  const drillList = DRILLS.map(d => ({
+  const drillList = DRILLS.filter(d => modeFilter(d, mode)).map(d => ({
     id: d.id, name: d.name, category: d.category,
     role: d.role, duration: d.duration, intensity: d.intensity, tags: d.tags
   }));
@@ -500,7 +508,16 @@ async function generateAIPlan(targetMin, mode) {
     }),
     notes: s.notes || ''
   }));
+  const modeNote = {
+    'any':     'Any drills are allowed.',
+    'solo':    'Solo session — only drills the player can do alone (wall, ball machine, or no-equipment).',
+    'wall':    'Wall-only session — every drill must be doable against a wall.',
+    'machine': 'Ball-machine session — every drill must be doable with a ball machine.',
+    'partner': 'Partner session — every drill requires a partner.',
+  }[mode] || '';
   const system = `You are a pickleball coaching assistant. Given a player's recent practice logs, identify their weak areas and build a focused practice session.
+
+Mode: ${modeNote}
 
 Rules:
 - Start with exactly ONE warmup drill (role: warmup).
@@ -509,8 +526,7 @@ Rules:
 - Total duration targets ${targetMin} minutes (±5 OK).
 - Weight drills toward categories where recent performance was "rough"/"okay" or notes show struggle.
 - No two high-intensity drills back-to-back. No two same-category back-to-back.
-${mode !== 'any' ? `- Only drills with "${mode}" in tags.` : ''}
-- Use ONLY drills from the provided library.
+- Use ONLY drills from the provided library (it has been pre-filtered for the selected mode).
 
 Output ONLY JSON, no markdown:
 {
