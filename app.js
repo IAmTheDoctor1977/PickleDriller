@@ -317,7 +317,7 @@ function renderRandom() {
     <div class="divider"></div>
 
     <h3 class="section-title">Random Game</h3>
-    <p class="hint" style="margin-bottom:10px">Pull one game from the Games library.</p>
+    <p class="hint" style="margin-bottom:10px">Pull games from the library.</p>
     <label class="field"><span>Player configuration</span>
       <div class="chips" id="r-game-cfg">
         <div class="chip active" data-v="any">Any</div>
@@ -326,11 +326,18 @@ function renderRandom() {
         <div class="chip" data-v="2v1">2v1</div>
         <div class="chip" data-v="2v2">2v2</div>
       </div></label>
-    <button class="btn" id="r-roll-game">Roll Game</button>
+    <label class="field"><span>How many</span>
+      <div class="chips" id="r-game-count">
+        <div class="chip" data-v="3">3</div>
+        <div class="chip active" data-v="5">5</div>
+        <div class="chip" data-v="7">7</div>
+        <div class="chip" data-v="10">10</div>
+      </div></label>
+    <button class="btn" id="r-roll-game">Roll Games</button>
 
     <div id="r-out" style="margin-top:18px"></div>`;
 
-  let dur = 30, mode = 'any', gameCfg = 'any';
+  let dur = 30, mode = 'any', gameCfg = 'any', gameCount = 5;
   document.querySelectorAll('#r-dur .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#r-dur .chip').forEach(x => x.classList.remove('active'));
@@ -349,6 +356,12 @@ function renderRandom() {
       c.classList.add('active'); gameCfg = c.dataset.v;
     };
   });
+  document.querySelectorAll('#r-game-count .chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#r-game-count .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); gameCount = +c.dataset.v;
+    };
+  });
   document.getElementById('r-roll').onclick = () => {
     const plan = generateRandomPlan(dur, mode);
     state.plan = plan;
@@ -356,23 +369,30 @@ function renderRandom() {
     bindPlanActions();
   };
   document.getElementById('r-roll-game').onclick = () => {
-    const game = rollRandomGame(gameCfg);
-    if (!game) {
-      document.getElementById('r-out').innerHTML = `<div class="warn">No games match that configuration.</div>`;
+    const games = rollRandomGames(gameCfg, gameCount);
+    const out = document.getElementById('r-out');
+    if (!games.length) {
+      out.innerHTML = `<div class="warn">No games match that configuration.</div>`;
       return;
     }
-    document.getElementById('r-out').innerHTML = `<div class="session-plan-block">
-      <div class="plan-focus">Random Game</div>
-      ${gameCard(game)}
+    out.innerHTML = `<div class="session-plan-block">
+      <div class="plan-focus">Random Games</div>
+      <p class="plan-reason">${games.length} game${games.length===1?'':'s'} · ${gameCfg === 'any' ? 'any player config' : gameCfg}</p>
+      ${games.map(gameCard).join('')}
     </div>`;
   };
 }
 
-function rollRandomGame(playerCfg) {
+function rollRandomGames(playerCfg, count) {
   const all = [...DOUBLES_GAMES, ...SINGLES_GAMES];
-  const filtered = playerCfg === 'any' ? all : all.filter(g => g.players === playerCfg);
-  if (!filtered.length) return null;
-  return filtered[Math.floor(Math.random() * filtered.length)];
+  const pool = playerCfg === 'any' ? all : all.filter(g => g.players === playerCfg);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+function rollRandomGame(playerCfg) {
+  const games = rollRandomGames(playerCfg, 1);
+  return games[0] || null;
 }
 
 function modeFilter(d, mode, excludeIds = new Set()) {
