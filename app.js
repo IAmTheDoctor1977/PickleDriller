@@ -8,6 +8,7 @@ const STORAGE = {
   activeTab:'dl_tab',
   assess:   'dl_assessment',
   schedule: 'dl_schedule',
+  gamesFmt: 'dl_games_format',
 };
 
 function load(key, fallback) {
@@ -25,6 +26,7 @@ const state = {
   plan:     null,
   assess:   load(STORAGE.assess, null),
   schedule: load(STORAGE.schedule, null),
+  gamesFormat: localStorage.getItem(STORAGE.gamesFmt) || 'doubles',
 };
 
 // Migrate older single-format assess data to new doubles/singles structure
@@ -71,6 +73,7 @@ const VIEWS = {
   gear:     renderGear,
   assess:   renderAssess,
   schedule: renderSchedule,
+  games:    renderGames,
 };
 
 function setTab(tab) {
@@ -82,7 +85,7 @@ function setTab(tab) {
   const labels = {
     drills: 'Drills', log: 'Log Session', history: 'History',
     random: 'Random', generate: 'AI Generate', gear: 'Gear',
-    assess: 'Assessment', schedule: 'Weekly Schedule'
+    assess: 'Assessment', schedule: 'Weekly Schedule', games: 'Game Drills'
   };
   document.getElementById('topbar-tab').textContent = labels[tab];
   VIEWS[tab]();
@@ -1063,6 +1066,68 @@ function scheduleDayCard(day) {
       <button class="btn btn-small-secondary" data-act="regen" data-day="${day.num}">Regen</button>
       <button class="btn btn-small-secondary" data-act="log" data-day="${day.num}">Log</button>
       <button class="btn ${day.completed ? '' : 'complete'}" data-act="complete" data-day="${day.num}">${day.completed ? 'Undo' : 'Done'}</button>
+    </div>
+  </div>`;
+}
+
+/* ──────────────────────────────────────────────
+   GAMES
+   ────────────────────────────────────────────── */
+function renderGames() {
+  const view = document.getElementById('view');
+  const fmt = state.gamesFormat;
+  const games = GAMES_BY_FORMAT[fmt];
+
+  // Group by category, preserving order in GAME_CATEGORIES
+  const grouped = {};
+  games.forEach(g => {
+    if (!grouped[g.category]) grouped[g.category] = [];
+    grouped[g.category].push(g);
+  });
+
+  let sectionsHtml = '';
+  Object.keys(GAME_CATEGORIES).forEach(catId => {
+    const items = grouped[catId];
+    if (!items || !items.length) return;
+    sectionsHtml += `<section class="cat-section">
+      <div class="cat-header">
+        <h3 class="cat-title">${GAME_CATEGORIES[catId]}</h3>
+        <span class="cat-count">${items.length}</span>
+      </div>
+      ${items.map(gameCard).join('')}
+    </section>`;
+  });
+
+  view.innerHTML = `<h2 class="view-title">Game Drills</h2>
+    <p class="view-sub">${games.length} live-point simulations · ${fmt}</p>
+
+    <div class="format-toggle">
+      <div class="fmt-chip ${fmt==='doubles'?'active':''}" data-fmt="doubles">Doubles</div>
+      <div class="fmt-chip ${fmt==='singles'?'active':''}" data-fmt="singles">Singles</div>
+    </div>
+
+    ${sectionsHtml}`;
+
+  document.querySelectorAll('.fmt-chip').forEach(c => {
+    c.onclick = () => {
+      state.gamesFormat = c.dataset.fmt;
+      localStorage.setItem(STORAGE.gamesFmt, state.gamesFormat);
+      renderGames();
+    };
+  });
+}
+
+function gameCard(g) {
+  return `<div class="game-card">
+    <div class="game-head">
+      <div class="game-name">${escapeHtml(g.name)}</div>
+      <div class="game-players">${g.players}</div>
+    </div>
+    <div class="game-focus">${escapeHtml(g.focus)}</div>
+    <div class="game-rules">${escapeHtml(g.rules)}</div>
+    ${g.notes ? `<div class="game-notes">${escapeHtml(g.notes)}</div>` : ''}
+    <div class="game-tags">
+      <span class="tag intensity-${g.difficulty === 'easy' ? 'low' : g.difficulty === 'medium' ? 'medium' : 'medium-high'}">${g.difficulty}</span>
     </div>
   </div>`;
 }

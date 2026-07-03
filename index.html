@@ -68,15 +68,20 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/><path d="M9 14l2 2 4-4" stroke-width="2"/></svg>
       <span>Sched</span>
     </button>
+    <button class="nav-btn" data-tab="games" aria-label="Games">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>
+      <span>Games</span>
+    </button>
   </nav>
 
   <script src="drills.js"></script>
   <script src="skills.js"></script>
+  <script src="games.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js?v=12').catch(() => {});
+        navigator.serviceWorker.register('service-worker.js?v=13').catch(() => {});
       });
     }
   </script>

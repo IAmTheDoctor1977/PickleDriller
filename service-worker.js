@@ -1,4 +1,4 @@
-const CACHE = 'drill-lab-v12';
+const CACHE = 'drill-lab-v13';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   './app.js',
   './drills.js',
   './skills.js',
+  './games.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
