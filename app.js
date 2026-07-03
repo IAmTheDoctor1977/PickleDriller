@@ -294,7 +294,9 @@ function sessionCard(s) {
 function renderRandom() {
   const view = document.getElementById('view');
   view.innerHTML = `<h2 class="view-title">Randomize</h2>
-    <p class="view-sub">Smart-shuffled practice</p>
+    <p class="view-sub">Smart-shuffled practice or a single game</p>
+
+    <h3 class="section-title">Practice Session</h3>
     <label class="field"><span>Target duration</span>
       <div class="chips" id="r-dur">
         <div class="chip active" data-v="30">30 min</div>
@@ -311,8 +313,24 @@ function renderRandom() {
         <div class="chip" data-v="partner">Partner</div>
       </div></label>
     <button class="btn" id="r-roll">Roll Practice</button>
+
+    <div class="divider"></div>
+
+    <h3 class="section-title">Random Game</h3>
+    <p class="hint" style="margin-bottom:10px">Pull one game from the Games library.</p>
+    <label class="field"><span>Player configuration</span>
+      <div class="chips" id="r-game-cfg">
+        <div class="chip active" data-v="any">Any</div>
+        <div class="chip" data-v="1v1">1v1</div>
+        <div class="chip" data-v="2p">2p Prep</div>
+        <div class="chip" data-v="2v1">2v1</div>
+        <div class="chip" data-v="2v2">2v2</div>
+      </div></label>
+    <button class="btn" id="r-roll-game">Roll Game</button>
+
     <div id="r-out" style="margin-top:18px"></div>`;
-  let dur = 30, mode = 'any';
+
+  let dur = 30, mode = 'any', gameCfg = 'any';
   document.querySelectorAll('#r-dur .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#r-dur .chip').forEach(x => x.classList.remove('active'));
@@ -325,12 +343,36 @@ function renderRandom() {
       c.classList.add('active'); mode = c.dataset.v;
     };
   });
+  document.querySelectorAll('#r-game-cfg .chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#r-game-cfg .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); gameCfg = c.dataset.v;
+    };
+  });
   document.getElementById('r-roll').onclick = () => {
     const plan = generateRandomPlan(dur, mode);
     state.plan = plan;
     document.getElementById('r-out').innerHTML = renderPlanBlock(plan);
     bindPlanActions();
   };
+  document.getElementById('r-roll-game').onclick = () => {
+    const game = rollRandomGame(gameCfg);
+    if (!game) {
+      document.getElementById('r-out').innerHTML = `<div class="warn">No games match that configuration.</div>`;
+      return;
+    }
+    document.getElementById('r-out').innerHTML = `<div class="session-plan-block">
+      <div class="plan-focus">Random Game</div>
+      ${gameCard(game)}
+    </div>`;
+  };
+}
+
+function rollRandomGame(playerCfg) {
+  const all = [...DOUBLES_GAMES, ...SINGLES_GAMES];
+  const filtered = playerCfg === 'any' ? all : all.filter(g => g.players === playerCfg);
+  if (!filtered.length) return null;
+  return filtered[Math.floor(Math.random() * filtered.length)];
 }
 
 function modeFilter(d, mode, excludeIds = new Set()) {
