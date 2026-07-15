@@ -335,9 +335,41 @@ function renderRandom() {
       </div></label>
     <button class="btn" id="r-roll-game">Roll Games</button>
 
+    <div class="divider"></div>
+
+    <h3 class="section-title">Skill Focus</h3>
+    <p class="hint" style="margin-bottom:10px">Drills for a specific shot, filtered by equipment.</p>
+    <label class="field"><span>Shot / skill</span>
+      <select id="r-focus-cat">
+        <option value="dinking">Dinking</option>
+        <option value="third-shot">Third Shot</option>
+        <option value="reset">Reset</option>
+        <option value="transition">Transition</option>
+        <option value="volley">Volley</option>
+        <option value="atp-erne">ATP / Erne</option>
+        <option value="serve-return">Serve &amp; Return</option>
+        <option value="footwork">Footwork</option>
+      </select></label>
+    <label class="field"><span>Mode</span>
+      <div class="chips" id="r-focus-mode">
+        <div class="chip active" data-v="any">Any</div>
+        <div class="chip" data-v="solo">Solo</div>
+        <div class="chip" data-v="wall">Wall</div>
+        <div class="chip" data-v="machine">Machine</div>
+        <div class="chip" data-v="partner">Partner</div>
+      </div></label>
+    <label class="field"><span>How many</span>
+      <div class="chips" id="r-focus-count">
+        <div class="chip" data-v="3">3</div>
+        <div class="chip active" data-v="5">5</div>
+        <div class="chip" data-v="7">7</div>
+      </div></label>
+    <button class="btn" id="r-roll-focus">Roll Focus</button>
+
     <div id="r-out" style="margin-top:18px"></div>`;
 
   let dur = 30, mode = 'any', gameCfg = 'any', gameCount = 5;
+  let focusCat = 'dinking', focusMode = 'any', focusCount = 5;
   document.querySelectorAll('#r-dur .chip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('#r-dur .chip').forEach(x => x.classList.remove('active'));
@@ -381,6 +413,58 @@ function renderRandom() {
       ${games.map(gameCard).join('')}
     </div>`;
   };
+
+  document.getElementById('r-focus-cat').onchange = e => focusCat = e.target.value;
+  document.querySelectorAll('#r-focus-mode .chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#r-focus-mode .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); focusMode = c.dataset.v;
+    };
+  });
+  document.querySelectorAll('#r-focus-count .chip').forEach(c => {
+    c.onclick = () => {
+      document.querySelectorAll('#r-focus-count .chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active'); focusCount = +c.dataset.v;
+    };
+  });
+  document.getElementById('r-roll-focus').onclick = () => {
+    const drills = rollFocusDrills(focusCat, focusMode, focusCount);
+    const out = document.getElementById('r-out');
+    if (!drills.length) {
+      out.innerHTML = `<div class="warn">No drills match that shot + mode combo. Try a different mode.</div>`;
+      return;
+    }
+    const catLabel = (CATEGORIES.find(c => c.id === focusCat) || {}).label || focusCat;
+    out.innerHTML = `<div class="session-plan-block">
+      <div class="plan-focus">${escapeHtml(catLabel)} focus</div>
+      <p class="plan-reason">${drills.length} drill${drills.length===1?'':'s'} · ${focusMode}</p>
+      ${drills.map((d, i) => `<div class="plan-drill">
+        <div class="plan-drill-head">
+          <div>
+            <div class="plan-drill-tag">DRILL ${i+1} · ${d.category}</div>
+            <div class="plan-step-name">${escapeHtml(d.name)}</div>
+          </div>
+          <span class="plan-step-time">${d.duration} min</span>
+        </div>
+        <p class="plan-drill-desc">${escapeHtml(d.description)}</p>
+        ${d.notes ? `<div class="plan-drill-notes">${escapeHtml(d.notes)}</div>` : ''}
+        <div class="tags">
+          <span class="tag intensity-${d.intensity}">${d.intensity}</span>
+          ${d.equipment.map(e => `<span class="tag">${e}</span>`).join('')}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  };
+}
+
+function rollFocusDrills(category, mode, count) {
+  const pool = DRILLS.filter(d =>
+    d.category === category &&
+    d.role === 'main' &&
+    modeFilter(d, mode)
+  );
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
 function rollRandomGames(playerCfg, count) {
